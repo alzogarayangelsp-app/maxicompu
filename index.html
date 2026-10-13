@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAXICOMPU - Servicio Técnico</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA--AnDl4pXrbSNeSXBwlRseJ2o0-QoZfE",
+      authDomain: "dojo-scout-karate-kids.firebaseapp.com",
+      projectId: "dojo-scout-karate-kids",
+      storageBucket: "dojo-scout-karate-kids.firebasestorage.app",
+      messagingSenderId: "69461854343",
+      appId: "1:69461854343:web:4a8a73fd9b9141a0b19022"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.db = db;
+    window.setDoc = setDoc;
+    window.doc = doc;
+    window.getDoc = getDoc;
+    window.getDocs = getDocs;
+    window.deleteDoc = deleteDoc;
+    window.updateDoc = updateDoc;
+    window.collection = collection;
+  </script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+  <div class="max-w-xl mx-auto bg-white min-h-screen shadow-lg flex flex-col justify-between">
+    
+    <!-- Header -->
+    <header class="bg-blue-700 text-white p-4 text-center font-bold text-xl shadow flex justify-between items-center">
+      <span onclick="mostrarVista('login-view')" class="cursor-pointer">💻 MAXICOMPU</span>
+      <button onclick="solicitarAccesoAdmin()" class="text-xs bg-blue-800 hover:bg-blue-900 px-2 py-1 rounded transition">Panel Taller</button>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="p-4 flex-grow">
+
+      <!-- VISTA 1: CONSULTA DE CLIENTE -->
+      <div id="login-view" class="space-y-4">
+        <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg text-center space-y-1">
+          <h2 class="text-lg font-bold text-blue-900">Consulta de Estado de Equipo</h2>
+          <p class="text-xs text-blue-700">Mitre 1231 | San Pedro</p>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Número de Orden</label>
+            <input type="number" id="input-nro-orden" class="w-full border rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: 600">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Celular de Contacto (sin 0 ni 15)</label>
+            <input type="number" id="input-celular" class="w-full border rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: 3329554433">
+          </div>
+          <button onclick="consultarOrdenCliente()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition">Consultar Estado</button>
+        </div>
+      </div>
+
+      <!-- VISTA 2: DETALLE DE ORDEN PARA EL CLIENTE -->
+      <div id="client-order-view" class="hidden space-y-4">
+        <div class="bg-gray-50 p-4 rounded-lg border space-y-2">
+          <div class="flex justify-between items-center border-b pb-2">
+            <h3 class="font-bold text-lg text-blue-900">Orden N° <span id="cli-nro">-</span></h3>
+            <span id="cli-estado-badge" class="text-xs font-bold px-2 py-1 rounded">Estado</span>
+          </div>
+          <p class="text-xs text-gray-600"><strong>Cliente:</strong> <span id="cli-nombre">-</span></p>
+          <p class="text-xs text-gray-600"><strong>Equipo:</strong> <span id="cli-equipo">-</span></p>
+          <p class="text-xs text-gray-600"><strong>Falla reportada:</strong> <span id="cli-falla">-</span></p>
+          <p class="text-xs text-gray-600"><strong>Técnico asignado:</strong> <span id="cli-tecnico" class="font-bold text-blue-700">-</span></p>
+          
+          <div id="cli-trabajo-box" class="hidden bg-amber-50 border border-amber-200 p-2 rounded text-xs text-amber-900">
+            <strong>Diagnóstico / Informe técnico:</strong>
+            <p id="cli-trabajo" class="mt-1 font-medium">-</p>
+          </div>
+        </div>
+
+        <!-- Cronología / Fechas de movimientos -->
+        <div class="bg-gray-50 border p-3 rounded-lg text-xs space-y-1.5 text-gray-700">
+          <p class="font-bold text-blue-900 border-b pb-1">📅 Historial de Movimientos:</p>
+          <div id="cli-historial-lista" class="space-y-1 text-[11px] text-gray-600"></div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg space-y-2 text-xs">
+          <p class="font-bold text-blue-900 border-b pb-1">Resumen Financiero:</p>
+          <div class="flex justify-between"><span>Presupuesto Inicial:</span> <strong id="cli-presupuesto-base">-</strong></div>
+          <div id="cli-box-adicional" class="hidden flex justify-between text-purple-900"><span>Adicional Agregado:</span> <strong id="cli-presupuesto-adicional">-</strong></div>
+          <div class="flex justify-between font-bold border-t pt-1"><span>Presupuesto Total:</span> <strong id="cli-presupuesto-total">-</strong></div>
+          <div class="flex justify-between"><span>Seña Entregada:</span> <strong id="cli-senia">-</strong></div>
+          <div class="flex justify-between text-sm pt-1 border-t border-blue-200 text-blue-900 font-black"><span>Saldo / Devolución:</span> <span id="cli-saldo">-</span></div>
+        </div>
+
+        <div class="bg-gray-50 border p-3 rounded-lg text-xs space-y-1 text-center text-gray-600">
+          <p class="font-bold text-gray-800">MAXICOMPU</p>
+          <p>Dirección: <strong>Mitre 1231</strong></p>
+          <p>Técnicos: <strong>Ángel / Leo</strong></p>
+        </div>
+
+        <button onclick="mostrarVista('login-view')" class="w-full border border-gray-300 text-gray-600 py-2 rounded-lg text-sm">Nueva Consulta</button>
+      </div>
+
+      <!-- VISTA 3: PANEL DEL TALLER / ADMIN -->
+      <div id="admin-view" class="hidden space-y-6">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h2 class="text-xl font-bold text-blue-700">Panel Taller - MAXICOMPU</h2>
+          <button onclick="mostrarVista('login-view')" class="text-xs border px-2 py-1 rounded text-gray-600">Cerrar Sesión</button>
+        </div>
+
+        <!-- Ajustes del Sistema y Caja -->
+        <details class="bg-gray-50 p-3 rounded-lg border">
+          <summary class="font-bold text-sm text-gray-700 cursor-pointer">⚙️ Configuración y Caja Mensual</summary>
+          <div class="space-y-3 mt-3 text-xs">
+            <div>
+              <label class="block font-semibold text-gray-600">Link Público de la App (para WhatsApp)</label>
+              <input type="text" id="cfg-link" class="w-full border rounded p-1.5 outline-none">
+            </div>
+            <div>
+              <label class="block font-semibold text-gray-600">Contraseña Administrador</label>
+              <input type="text" id="cfg-pass" class="w-full border rounded p-1.5 outline-none">
+            </div>
+            <button onclick="guardarConfiguracion()" class="w-full bg-blue-700 text-white py-2 rounded font-semibold hover:bg-blue-800 transition">Guardar Configuración</button>
+            
+            <div class="border-t pt-3 mt-3">
+              <p class="font-bold text-gray-800 mb-1">📊 Cajas Mensuales (Ingresos por Entregas):</p>
+              <div class="grid grid-cols-2 gap-2 text-center">
+                <div class="bg-blue-100 p-2 rounded">
+                  <p class="font-bold text-blue-800">ÁNGEL (Mes)</p>
+                  <p class="text-base font-black text-blue-900" id="caja-angel-mes">$0</p>
+                </div>
+                <div class="bg-green-100 p-2 rounded">
+                  <p class="font-bold text-green-800">LEO (Mes)</p>
+                  <p class="text-base font-black text-green-900" id="caja-leo-mes">$0</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Formulario Nueva Orden / Reparación -->
+        <div class="bg-gray-50 p-4 rounded-lg border space-y-3">
+          <h3 class="font-bold text-sm text-blue-900 border-b pb-1">➕ Registrar Nueva Orden de Reparación</h3>
+          
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Nombre y Apellido</label>
+              <input type="text" id="ord-nombre" placeholder="Juan Pérez" class="w-full border rounded p-2 text-xs outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Celular (sin 0 ni 15)</label>
+              <input type="number" id="ord-celular" placeholder="3329..." class="w-full border rounded p-2 text-xs outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Tipo de Equipo</label>
+              <select id="ord-tipo-equipo" class="w-full border rounded p-2 text-xs outline-none bg-white">
+                <option value="Celular">Celular</option>
+                <option value="Notebook">Notebook</option>
+                <option value="PC de Escritorio">PC de Escritorio</option>
+                <option value="Tablet">Tablet</option>
+                <option value="Impresora">Impresora</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Detalle / Modelo</label>
+              <input type="text" id="ord-modelo" placeholder="Ej: Samsung A12" class="w-full border rounded p-2 text-xs outline-none">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Falla Reportada</label>
+            <input type="text" id="ord-falla" placeholder="No enciende / Pantalla rota" class="w-full border rounded p-2 text-xs outline-none">
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Presupuesto ($)</label>
+              <input type="number" id="ord-presupuesto" placeholder="Opcional" class="w-full border rounded p-2 text-xs outline-none" onkeyup="calcularSaldoAdmin()" onchange="calcularSaldoAdmin()">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Seña ($)</label>
+              <input type="number" id="ord-senia" placeholder="Opcional" class="w-full border rounded p-2 text-xs outline-none" onkeyup="calcularSaldoAdmin()" onchange="calcularSaldoAdmin()">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Saldo Pendiente</label>
+              <input type="text" id="ord-saldo-txt" disabled value="Pendiente eval." class="w-full border rounded p-2 text-xs bg-gray-100 font-bold text-gray-700">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Técnico Asignado</label>
+            <select id="ord-tecnico" class="w-full border rounded p-2 text-xs outline-none bg-white">
+              <option value="Ángel">Ángel</option>
+              <option value="Leo">Leo</option>
+            </select>
+          </div>
+
+          <button onclick="guardarNuevaOrden()" class="w-full bg-blue-600 text-white py-2.5 rounded font-semibold text-xs hover:bg-blue-700 transition shadow">💾 Guardar Orden y Enviar WhatsApp</button>
+        </div>
+
+        <!-- Buscador y Filtros con Badges de Cantidad -->
+        <div class="space-y-3">
+          <div class="flex gap-2">
+            <input type="text" id="buscador-texto" placeholder="Buscar por orden, apellido o celular..." class="w-full border rounded p-2 text-xs outline-none" oninput="renderizarListaOrdenes()">
+          </div>
+
+          <div class="flex gap-1 text-[11px] overflow-x-auto pb-1">
+            <button onclick="filtrarOrdenes('TODOS')" id="btn-f-TODOS" class="px-2 py-1 rounded bg-blue-700 text-white font-bold whitespace-nowrap">
+              Todos
+            </button>
+            
+            <button onclick="filtrarOrdenes('Ángel')" id="btn-f-Ángel" class="px-2 py-1 rounded bg-gray-200 text-gray-700 whitespace-nowrap flex items-center gap-1">
+              Ángel <span id="cnt-angel" class="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full hidden">0</span>
+            </button>
+            
+            <button onclick="filtrarOrdenes('Leo')" id="btn-f-Leo" class="px-2 py-1 rounded bg-gray-200 text-gray-700 whitespace-nowrap flex items-center gap-1">
+              Leo <span id="cnt-leo" class="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full hidden">0</span>
+            </button>
+            
+            <button onclick="filtrarOrdenes('Reparado')" id="btn-f-Reparado" class="px-2 py-1 rounded bg-gray-200 text-gray-700 whitespace-nowrap flex items-center gap-1">
+              Listos / Reparados <span id="cnt-reparado" class="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full hidden">0</span>
+            </button>
+            
+            <button onclick="filtrarOrdenes('EsperandoConfirmacion')" id="btn-f-EsperandoConfirmacion" class="px-2 py-1 rounded bg-gray-200 text-gray-700 whitespace-nowrap flex items-center gap-1">
+              Esperando Confirmación <span id="cnt-confirmacion" class="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full hidden">0</span>
+            </button>
+            
+            <button onclick="filtrarOrdenes('Retirado')" id="btn-f-Retirado" class="px-2 py-1 rounded bg-gray-200 text-gray-700 whitespace-nowrap">
+              Retirados
+            </button>
+          </div>
+
+          <div id="lista-ordenes-admin" class="space-y-3 text-sm"></div>
+        </div>
+      </div>
+
+    </main>
+
+    <footer class="p-4 text-center text-xs text-gray-400 border-t">
+      MAXICOMPU - Mitre 1231 - San Pedro
+    </footer>
+  </div>
+
+  <script>
+    const CLAVE_MAESTRA = "802241";
+    let configApp = {
+      claveAdmin: "1231",
+      linkApp: "https://alzogarayangelsp-app.github.io/maxicompu/"
+    };
+
+    let listaOrdenesCache = [];
+    let filtroActualAdmin = "TODOS";
+
+    function obtenerFechaHoraActual() {
+      const ahora = new Date();
+      return ahora.toLocaleDateString("es-AR") + " - " + ahora.toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' }) + " hs";
+    }
+
+    function calcularSaldoAdmin() {
+      const presVal = document.getElementById("ord-presupuesto").value.trim();
+      const senVal = document.getElementById("ord-senia").value.trim();
+
+      if (!presVal && !senVal) {
+        document.getElementById("ord-saldo-txt").value = "Pendiente eval.";
+        return;
+      }
+
+      const pres = parseFloat(presVal) || 0;
+      const sen = parseFloat(senVal) || 0;
+      const saldo = pres - sen;
+      document.getElementById("ord-saldo-txt").value = `$${saldo.toLocaleString("es-AR")}`;
+    }
+
+    async function cargarConfiguracion() {
+      try {
+        const docRef = window.doc(window.db, "configuracion_maxicompu", "general");
+        const docSnap = await window.getDoc(docRef);
+        if (docSnap.exists()) {
+          configApp = { ...configApp, ...docSnap.data() };
+        } else {
+          await window.setDoc(docRef, configApp);
+        }
+      } catch (e) {
+        console.error("Error al cargar configuración:", e);
+      }
+    }
+
+    function mostrarVista(vistaId) {
+      document.getElementById("login-view").classList.add("hidden");
+      document.getElementById("client-order-view").classList.add("hidden");
+      document.getElementById("admin-view").classList.add("hidden");
+      document.getElementById(vistaId).classList.remove("hidden");
+    }
+
+    async function solicitarAccesoAdmin() {
+      const pass = prompt("Ingresá la clave del Panel Taller:");
+      if (pass === null) return;
+
+      if (pass.trim() === CLAVE_MAESTRA) {
+        await cargarConfiguracion();
+        mostrarVista("admin-view");
+        cargarPanelTaller();
+        return;
+      }
+
+      await cargarConfiguracion();
+      if (pass.trim() === configApp.claveAdmin) {
+        mostrarVista("admin-view");
+        cargarPanelTaller();
+      } else {
+        alert("Clave incorrecta.");
+      }
+    }
+
+    async function consultarOrdenCliente() {
+      const nroOrden = document.getElementById("input-nro-orden").value.trim();
+      const celular = document.getElementById("input-celular").value.trim();
+
+      if (!nroOrden || !celular) return alert("Por favor ingresá el número de orden y tu celular.");
+
+      try {
+        const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+        const docSnap = await window.getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const orden = docSnap.data();
+          if (orden.celular === celular) {
+            mostrarDetalleCliente(orden);
+          } else {
+            alert("El número de celular no coincide con el registrado en esta orden.");
+          }
+        } else {
+          alert("No se encontró ninguna orden con ese número.");
+        }
+      } catch (e) {
+        console.error(e);
+        alert("Error al consultar orden.");
+      }
+    }
+
+    function mostrarDetalleCliente(orden) {
+      mostrarVista("client-order-view");
+      document.getElementById("cli-nro").innerText = orden.nroOrden;
+      document.getElementById("cli-nombre").innerText = orden.nombre;
+      document.getElementById("cli-equipo").innerText = `${orden.tipoEquipo} - ${orden.modelo}`;
+      document.getElementById("cli-falla").innerText = orden.falla;
+      document.getElementById("cli-tecnico").innerText = orden.tecnico;
+
+      // Renderizar Historial de Eventos
+      const listaHist = document.getElementById("cli-historial-lista");
+      listaHist.innerHTML = "";
+      const eventos = orden.historialEventos || [
+        { fecha: orden.fechaIngreso || "-", detalle: "Ingreso de equipo a taller" }
+      ];
+
+      eventos.forEach(ev => {
+        const p = document.createElement("p");
+        p.innerHTML = `• <strong>${ev.fecha}:</strong> ${ev.detalle}`;
+        listaHist.appendChild(p);
+      });
+
+      // Montos
+      const presBase = orden.presupuestoBase || orden.presupuesto || 0;
+      const presAdic = orden.presupuestoAdicional || 0;
+      const presTotal = orden.presupuesto || (presBase + presAdic);
+
+      document.getElementById("cli-presupuesto-base").innerText = presBase > 0 ? `$${presBase.toLocaleString("es-AR")}` : "A evaluar";
+      
+      const boxAdic = document.getElementById("cli-box-adicional");
+      if (presAdic > 0) {
+        document.getElementById("cli-presupuesto-adicional").innerText = `+$${presAdic.toLocaleString("es-AR")}`;
+        boxAdic.classList.remove("hidden");
+      } else {
+        boxAdic.classList.add("hidden");
+      }
+
+      document.getElementById("cli-presupuesto-total").innerText = presTotal > 0 ? `$${presTotal.toLocaleString("es-AR")}` : "A evaluar";
+
+      if (orden.estado.includes("Sin Reparación")) {
+        const rev = orden.costoRevision || 0;
+        const sen = orden.senia || 0;
+        document.getElementById("cli-presupuesto-total").innerText = "Sin Reparación / Presupuesto Rechazado";
+        document.getElementById("cli-senia").innerText = sen > 0 ? `$${sen.toLocaleString("es-AR")}` : "Sin seña";
+        
+        if (sen > rev) {
+          const devolucion = sen - rev;
+          document.getElementById("cli-saldo").innerText = `Devolución a favor del cliente: $${devolucion.toLocaleString("es-AR")}`;
+        } else if (rev > sen) {
+          const aAbonar = rev - sen;
+          document.getElementById("cli-saldo").innerText = `Abonar por revisión técnica: $${aAbonar.toLocaleString("es-AR")}`;
+        } else {
+          document.getElementById("cli-saldo").innerText = "$0 (Sin saldo ni devoluciones pendientes)";
+        }
+      } else {
+        document.getElementById("cli-senia").innerText = `$${(orden.senia || 0).toLocaleString("es-AR")}`;
+        document.getElementById("cli-saldo").innerText = `$${(orden.saldo || 0).toLocaleString("es-AR")}`;
+      }
+
+      const trabajoBox = document.getElementById("cli-trabajo-box");
+      if (orden.trabajoRealizado) {
+        document.getElementById("cli-trabajo").innerText = orden.trabajoRealizado;
+        trabajoBox.classList.remove("hidden");
+      } else {
+        trabajoBox.classList.add("hidden");
+      }
+
+      const badge = document.getElementById("cli-estado-badge");
+      badge.innerText = orden.estado;
+      badge.className = "text-xs font-bold px-2 py-1 rounded " + obtenerClaseEstado(orden.estado);
+    }
+
+    function obtenerClaseEstado(estado) {
+      if (estado.includes("Ingresado")) return "bg-blue-100 text-blue-800";
+      if (estado.includes("Reparado") || estado.includes("Aceptado")) return "bg-green-100 text-green-800";
+      if (estado.includes("Esperando Confirmación")) return "bg-purple-100 text-purple-800";
+      if (estado.includes("Sin Reparación")) return "bg-red-100 text-red-800";
+      if (estado.includes("Retirado")) return "bg-gray-200 text-gray-700";
+      return "bg-gray-100 text-gray-800";
+    }
+
+    async function obtenerSiguienteNroOrden() {
+      try {
+        const querySnapshot = await window.getDocs(window.collection(window.db, "ordenes_maxicompu"));
+        let maxOrden = 599;
+        querySnapshot.forEach((doc) => {
+          const nro = parseInt(doc.id);
+          if (!isNaN(nro) && nro > maxOrden) {
+            maxOrden = nro;
+          }
+        });
+        return maxOrden + 1;
+      } catch (e) {
+        console.error("Error al obtener secuencial:", e);
+        return 600;
+      }
+    }
+
+    async function guardarNuevaOrden() {
+      const nombre = document.getElementById("ord-nombre").value.trim();
+      const celular = document.getElementById("ord-celular").value.trim();
+      const tipoEquipo = document.getElementById("ord-tipo-equipo").value;
+      const modelo = document.getElementById("ord-modelo").value.trim() || "-";
+      const falla = document.getElementById("ord-falla").value.trim();
+      const presInput = document.getElementById("ord-presupuesto").value.trim();
+      const senInput = document.getElementById("ord-senia").value.trim();
+      const tecnico = document.getElementById("ord-tecnico").value;
+
+      if (!nombre || !falla) return alert("Por favor completá al menos el Nombre y la Falla.");
+
+      const presupuesto = presInput !== "" ? parseFloat(presInput) : 0;
+      const senia = senInput !== "" ? parseFloat(senInput) : 0;
+      const saldo = presupuesto - senia;
+
+      const nroOrden = await obtenerSiguienteNroOrden();
+      const fechaIngreso = obtenerFechaHoraActual();
+
+      const historialInicial = [
+        { fecha: fechaIngreso, detalle: `Ingreso a taller - Falla: ${falla}` }
+      ];
+
+      if (presupuesto > 0) {
+        historialInicial.push({ fecha: fechaIngreso, detalle: `Presupuesto base asignado: $${presupuesto.toLocaleString("es-AR")}` });
+      }
+
+      const nuevaOrden = {
+        nroOrden: nroOrden.toString(),
+        nombre: nombre,
+        celular: celular,
+        tipoEquipo: tipoEquipo,
+        modelo: modelo,
+        falla: falla,
+        presupuestoBase: presupuesto,
+        presupuestoAdicional: 0,
+        presupuesto: presupuesto,
+        senia: senia,
+        saldo: saldo,
+        tecnico: tecnico,
+        trabajoRealizado: "",
+        costoRevision: 0,
+        estado: "Ingresado / En Diagnóstico",
+        fechaIngreso: fechaIngreso,
+        fechaModificacion: fechaIngreso,
+        historialEventos: historialInicial,
+        mesCaja: new Date().toISOString().substring(0, 7)
+      };
+
+      try {
+        await window.setDoc(window.doc(window.db, "ordenes_maxicompu", nroOrden.toString()), nuevaOrden);
+        
+        let detallePrecioWs = "";
+        if (presupuesto > 0) {
+          detallePrecioWs = `Presupuesto inicial: $${presupuesto.toLocaleString("es-AR")} | Seña: $${senia.toLocaleString("es-AR")} | Saldo pendiente: $${saldo.toLocaleString("es-AR")}.`;
+        } else {
+          detallePrecioWs = `A la espera de evaluación técnica del equipo para definir presupuesto.`;
+        }
+
+        const textoWs = `Hola ${nombre}! Recibimos tu ${tipoEquipo} (${modelo}) en MAXICOMPU el ${fechaIngreso}. Orden N°: *${nroOrden}*. Falla: ${falla}. ${detallePrecioWs} Podés consultar el estado ingresando tu celular y orden en: ${configApp.linkApp}`;
+        
+        if (celular) {
+          window.open(`https://wa.me/549${celular}?text=${encodeURIComponent(textoWs)}`, '_blank');
+        }
+
+        alert(`¡Orden N° ${nroOrden} registrada correctamente!`);
+        limpiarFormularioOrden();
+        cargarPanelTaller();
+      } catch (e) {
+        console.error("Error al guardar la orden:", e);
+        alert("Error al conectar con la base de datos.");
+      }
+    }
+
+    function limpiarFormularioOrden() {
+      document.getElementById("ord-nombre").value = "";
+      document.getElementById("ord-celular").value = "";
+      document.getElementById("ord-modelo").value = "";
+      document.getElementById("ord-falla").value = "";
+      document.getElementById("ord-presupuesto").value = "";
+      document.getElementById("ord-senia").value = "";
+      document.getElementById("ord-saldo-txt").value = "Pendiente eval.";
+    }
+
+    async function cargarPanelTaller() {
+      document.getElementById("cfg-link").value = configApp.linkApp;
+      document.getElementById("cfg-pass").value = configApp.claveAdmin;
+
+      const listaDiv = document.getElementById("lista-ordenes-admin");
+      listaDiv.innerHTML = "<p class='text-xs text-gray-400'>Cargando órdenes...</p>";
+
+      try {
+        const querySnapshot = await window.getDocs(window.collection(window.db, "ordenes_maxicompu"));
+        listaOrdenesCache = [];
+        querySnapshot.forEach((doc) => {
+          listaOrdenesCache.push(doc.data());
+        });
+
+        listaOrdenesCache.sort((a, b) => parseInt(b.nroOrden) - parseInt(a.nroOrden));
+
+        actualizarContadoresSolapas();
+        calcularCajasMes();
+        renderizarListaOrdenes();
+      } catch (e) {
+        console.error(e);
+        alert("Error al cargar órdenes.");
+      }
+    }
+
+    function actualizarContadoresSolapas() {
+      let cntAngel = 0;
+      let cntLeo = 0;
+      let cntReparado = 0;
+      let cntConfirmacion = 0;
+
+      listaOrdenesCache.forEach(ord => {
+        const est = ord.estado;
+        if (ord.tecnico === "Ángel" && !est.includes("Retirado") && !est.includes("Reparado") && !est.includes("Sin Reparación") && !est.includes("Esperando Confirmación")) {
+          cntAngel++;
+        }
+        if (ord.tecnico === "Leo" && !est.includes("Retirado") && !est.includes("Reparado") && !est.includes("Sin Reparación") && !est.includes("Esperando Confirmación")) {
+          cntLeo++;
+        }
+        if ((est.includes("Reparado") || est.includes("Sin Reparación")) && !est.includes("Retirado")) {
+          cntReparado++;
+        }
+        if (est.includes("Esperando Confirmación")) {
+          cntConfirmacion++;
+        }
+      });
+
+      actualizarBadge("cnt-angel", cntAngel);
+      actualizarBadge("cnt-leo", cntLeo);
+      actualizarBadge("cnt-reparado", cntReparado);
+      actualizarBadge("cnt-confirmacion", cntConfirmacion);
+    }
+
+    function actualizarBadge(idElemento, cantidad) {
+      const el = document.getElementById(idElemento);
+      if (!el) return;
+      if (cantidad > 0) {
+        el.innerText = cantidad;
+        el.classList.remove("hidden");
+      } else {
+        el.classList.add("hidden");
+      }
+    }
+
+    function calcularCajasMes() {
+      const mesActual = new Date().toISOString().substring(0, 7);
+      let totalAngel = 0;
+      let totalLeo = 0;
+
+      listaOrdenesCache.forEach(ord => {
+        if (ord.estado === "Retirado / Entregado" && ord.mesCaja === mesActual && ord.montoCobradoAlRetirar) {
+          if (ord.tecnico === "Ángel") totalAngel += ord.montoCobradoAlRetirar;
+          if (ord.tecnico === "Leo") totalLeo += ord.montoCobradoAlRetirar;
+        }
+      });
+
+      document.getElementById("caja-angel-mes").innerText = `$${totalAngel.toLocaleString("es-AR")}`;
+      document.getElementById("caja-leo-mes").innerText = `$${totalLeo.toLocaleString("es-AR")}`;
+    }
+
+    function filtrarOrdenes(filtro) {
+      filtroActualAdmin = filtro;
+      const botones = ['TODOS', 'Ángel', 'Leo', 'Reparado', 'EsperandoConfirmacion', 'Retirado'];
+      botones.forEach(b => {
+        const btn = document.getElementById(`btn-f-${b}`);
+        if (btn) {
+          btn.className = b === filtro ? "px-2 py-1 rounded bg-blue-700 text-white font-bold whitespace-nowrap flex items-center gap-1" : "px-2 py-1 rounded bg-gray-200 text-gray-700 whitespace-nowrap flex items-center gap-1";
+        }
+      });
+      renderizarListaOrdenes();
+    }
+
+    function renderizarListaOrdenes() {
+      const listaDiv = document.getElementById("lista-ordenes-admin");
+      listaDiv.innerHTML = "";
+      const textoBusqueda = document.getElementById("buscador-texto").value.toLowerCase();
+
+      const filtradas = listaOrdenesCache.filter(ord => {
+        const coincideTexto = ord.nroOrden.toLowerCase().includes(textoBusqueda) ||
+                              ord.nombre.toLowerCase().includes(textoBusqueda) ||
+                              ord.celular.toLowerCase().includes(textoBusqueda);
+        if (!coincideTexto) return false;
+
+        if (filtroActualAdmin === "Ángel") {
+          return ord.tecnico === "Ángel" && !ord.estado.includes("Retirado") && !ord.estado.includes("Reparado") && !ord.estado.includes("Sin Reparación") && !ord.estado.includes("Esperando Confirmación");
+        }
+        if (filtroActualAdmin === "Leo") {
+          return ord.tecnico === "Leo" && !ord.estado.includes("Retirado") && !ord.estado.includes("Reparado") && !ord.estado.includes("Sin Reparación") && !ord.estado.includes("Esperando Confirmación");
+        }
+
+        if (filtroActualAdmin === "Reparado") return (ord.estado.includes("Reparado") || ord.estado.includes("Sin Reparación")) && !ord.estado.includes("Retirado");
+        if (filtroActualAdmin === "EsperandoConfirmacion") return ord.estado.includes("Esperando Confirmación");
+        if (filtroActualAdmin === "Retirado") return ord.estado.includes("Retirado");
+        return true;
+      });
+
+      if (filtradas.length === 0) {
+        listaDiv.innerHTML = "<p class='text-xs text-gray-400 text-center py-4'>No se encontraron órdenes.</p>";
+        return;
+      }
+
+      filtradas.forEach(ord => {
+        const card = document.createElement("div");
+        card.className = "border p-3 rounded-lg bg-white shadow-sm space-y-2 text-xs";
+
+        const esRetirado = ord.estado.includes("Retirado");
+        const esEsperandoConf = ord.estado.includes("Esperando Confirmación");
+        const esListoReparado = (ord.estado.includes("Reparado") || ord.estado.includes("Sin Reparación")) && !esRetirado;
+        const esSolapaTodos = filtroActualAdmin === "TODOS";
+        const esSolapaRetirado = filtroActualAdmin === "Retirado";
+
+        const presBase = ord.presupuestoBase || ord.presupuesto || 0;
+        const presAdic = ord.presupuestoAdicional || 0;
+        const presTotal = ord.presupuesto || (presBase + presAdic);
+
+        // Generar lista de eventos cronológicos
+        let htmlHistorialTecnico = "";
+        const eventos = ord.historialEventos || [
+          { fecha: ord.fechaIngreso || "-", detalle: "Ingreso a taller" }
+        ];
+
+        eventos.forEach(ev => {
+          htmlHistorialTecnico += `<li class="text-[11px] text-gray-600">• <strong class="text-gray-800">${ev.fecha}:</strong> ${ev.detalle}</li>`;
+        });
+
+        // SOLAPA RETIRADOS: Únicamente botón de volver a tomar (Garantía)
+        if (esSolapaRetirado) {
+          card.innerHTML = `
+            <div class="flex justify-between items-start border-b pb-2">
+              <div>
+                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre}</p>
+                <p class="text-gray-600">Equipo: <strong>${ord.tipoEquipo} (${ord.modelo})</strong> | Falla: ${ord.falla}</p>
+                <p class="text-gray-500">Técnico Asignado: <strong class="text-blue-700">${ord.tecnico}</strong> | Cel: ${ord.celular || 'Sin tel'}</p>
+              </div>
+              <span class="font-bold px-2 py-1 rounded text-[10px] ${obtenerClaseEstado(ord.estado)}">${ord.estado}</span>
+            </div>
+
+            <!-- Bitácora Completa de Historial -->
+            <div class="bg-amber-50 p-2 rounded border border-amber-200 space-y-1">
+              <p class="font-bold text-amber-900 text-[11px]">📖 Historial de Movimientos de Taller:</p>
+              <ul class="space-y-1 pl-1">
+                ${htmlHistorialTecnico}
+              </ul>
+            </div>
+
+            <!-- ÚNICO BOTÓN: Volver a Tomar -->
+            <div class="pt-1">
+              <button onclick="volverATomarTecnico('${ord.nroOrden}')" class="w-full bg-amber-600 text-white py-2 rounded font-bold hover:bg-amber-700 text-xs shadow">↩️ Volver a Tomar (Garantía / Revisión - Pasa a ${ord.tecnico})</button>
+            </div>
+          `;
+        } else if (esSolapaTodos) {
+          // SOLAPA TODOS: Historial + Volver a tomar + (Boton Entregar si NO fue entregado aún)
+          card.innerHTML = `
+            <div class="flex justify-between items-start border-b pb-2">
+              <div>
+                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre}</p>
+                <p class="text-gray-600">Equipo: <strong>${ord.tipoEquipo} (${ord.modelo})</strong> | Falla: ${ord.falla}</p>
+                <p class="text-gray-500">Técnico Asignado: <strong class="text-blue-700">${ord.tecnico}</strong> | Cel: ${ord.celular || 'Sin tel'}</p>
+              </div>
+              <span class="font-bold px-2 py-1 rounded text-[10px] ${obtenerClaseEstado(ord.estado)}">${ord.estado}</span>
+            </div>
+
+            <!-- Bitácora Completa de Historial -->
+            <div class="bg-amber-50 p-2 rounded border border-amber-200 space-y-1">
+              <p class="font-bold text-amber-900 text-[11px]">📖 Historial de Movimientos de Taller:</p>
+              <ul class="space-y-1 pl-1">
+                ${htmlHistorialTecnico}
+              </ul>
+            </div>
+
+            <div class="flex gap-2 pt-1">
+              ${!esRetirado ? `
+                <button onclick="entregarOrden('${ord.nroOrden}')" class="w-1/2 bg-blue-800 text-white py-2 rounded font-bold hover:bg-blue-900 text-xs shadow">📦 Entregar al Cliente</button>
+                <button onclick="volverATomarTecnico('${ord.nroOrden}')" class="w-1/2 bg-amber-600 text-white py-2 rounded font-bold hover:bg-amber-700 text-xs shadow">↩️ Volver a Tomar (${ord.tecnico})</button>
+              ` : `
+                <button onclick="volverATomarTecnico('${ord.nroOrden}')" class="w-full bg-amber-600 text-white py-2 rounded font-bold hover:bg-amber-700 text-xs shadow">↩️ Volver a Tomar (Garantía / Pasa a ${ord.tecnico})</button>
+              `}
+            </div>
+          `;
+        } else {
+          // VISTA REGULAR PARA LAS DEMÁS SOLAPAS (Ángel, Leo, Listos, Esperando Confirmación)
+          card.innerHTML = `
+            <div class="flex justify-between items-start border-b pb-2">
+              <div>
+                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre}</p>
+                <p class="text-gray-600">Equipo: <strong>${ord.tipoEquipo} (${ord.modelo})</strong> | Falla: ${ord.falla}</p>
+                <p class="text-gray-500">Técnico: <strong class="text-blue-700">${ord.tecnico}</strong> | Cel: ${ord.celular || 'Sin tel'}</p>
+              </div>
+              <span class="font-bold px-2 py-1 rounded text-[10px] ${obtenerClaseEstado(ord.estado)}">${ord.estado}</span>
+            </div>
+
+            <!-- Bitácora de Pasos del Técnico -->
+            <details class="bg-amber-50 p-2 rounded border border-amber-200">
+              <summary class="font-bold text-amber-900 cursor-pointer text-[11px]">📖 Historial de Movimientos (${eventos.length})</summary>
+              <ul class="mt-1 space-y-1 pl-1">
+                ${htmlHistorialTecnico}
+              </ul>
+            </details>
+
+            <!-- Desglose de Montos -->
+            <div class="bg-gray-50 p-2 rounded text-[11px] space-y-0.5">
+              <div class="flex justify-between text-gray-600"><span>Base: <strong>$${presBase.toLocaleString("es-AR")}</strong></span> <span>Agregado: <strong class="text-purple-700">+$${presAdic.toLocaleString("es-AR")}</strong></span> <span>Seña: <strong>$${(ord.senia || 0).toLocaleString("es-AR")}</strong></span></div>
+              <div class="flex justify-between font-bold border-t pt-1 text-blue-900 text-xs"><span>TOTAL: $${presTotal.toLocaleString("es-AR")}</span> <span>SALDO: $${(ord.saldo || 0).toLocaleString("es-AR")}</span></div>
+            </div>
+
+            ${esEsperandoConf ? `
+              <div class="bg-purple-50 p-2 rounded border border-purple-200 space-y-2">
+                <p class="font-bold text-purple-900 text-[11px]">Respuesta del cliente sobre el nuevo presupuesto:</p>
+                <div class="flex gap-2">
+                  <button onclick="responderPresupuesto('${ord.nroOrden}', true)" class="w-1/2 bg-green-600 text-white py-1.5 rounded font-bold hover:bg-green-700 text-xs">👍 Aceptó Presupuesto</button>
+                  <button onclick="responderPresupuesto('${ord.nroOrden}', false)" class="w-1/2 bg-red-600 text-white py-1.5 rounded font-bold hover:bg-red-700 text-xs">👎 Rechazó Presupuesto</button>
+                </div>
+              </div>
+            ` : esListoReparado ? `
+              <!-- SOLAPA LISTOS / REPARADOS: ENTREGAR O VOLVER A TOMAR -->
+              <div class="flex gap-2 pt-1">
+                <button onclick="entregarOrden('${ord.nroOrden}')" class="w-1/2 bg-blue-800 text-white py-2 rounded font-bold hover:bg-blue-900 text-xs shadow">📦 Entregar al Cliente</button>
+                <button onclick="volverATomarTecnico('${ord.nroOrden}')" class="w-1/2 bg-amber-600 text-white py-2 rounded font-bold hover:bg-amber-700 text-xs shadow">↩️ Volver a Taller (${ord.tecnico})</button>
+              </div>
+            ` : `
+              <!-- SOLAPAS TÉCNICO (ÁNGEL / LEO) -->
+              <div class="flex gap-1 flex-wrap pt-1">
+                <button onclick="marcarReparado('${ord.nroOrden}')" class="bg-green-600 text-white px-2 py-1 rounded font-semibold hover:bg-green-700">✅ Reparado</button>
+                <button onclick="solicitarNuevoPresupuesto('${ord.nroOrden}')" class="bg-purple-600 text-white px-2 py-1 rounded font-semibold hover:bg-purple-700">📋 Nuevo Presupuesto</button>
+                <button onclick="marcarSinReparacion('${ord.nroOrden}')" class="bg-red-600 text-white px-2 py-1 rounded font-semibold hover:bg-red-700">❌ Sin Reparación</button>
+              </div>
+            `}
+          `;
+        }
+
+        listaDiv.appendChild(card);
+      });
+    }
+
+    async function marcarReparado(nroOrden) {
+      const ord = listaOrdenesCache.find(o => o.nroOrden === nroOrden);
+      if (!ord) return;
+
+      const trabajoInput = prompt(`Diagnóstico o trabajo técnico realizado (Reparado):`, ord.trabajoRealizado || "");
+      if (trabajoInput === null) return;
+
+      const presAnterior = ord.presupuesto || 0;
+      const seniaActual = ord.senia || 0;
+      const nuevoSaldo = presAnterior - seniaActual;
+      const fechaHoraActual = obtenerFechaHoraActual();
+      const nuevoEstado = "Reparado / Listo para Retirar";
+
+      const nuevoEvento = {
+        fecha: fechaHoraActual,
+        detalle: `Equipo Reparado por ${ord.tecnico}. Trabajo: ${trabajoInput.trim()}. Pasó a Listos para Retirar.`
+      };
+      const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+
+      if (confirm(`¿Marcar como REPARADO y enviar aviso de retiro por WhatsApp al cliente?`)) {
+        try {
+          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+          await window.updateDoc(docRef, {
+            estado: nuevoEstado,
+            trabajoRealizado: trabajoInput.trim(),
+            fechaModificacion: fechaHoraActual,
+            historialEventos: historialActualizado
+          });
+
+          let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
+          mensajeWs += `📌 *Estado Actual:* ✅ ¡Tu equipo ya está REPARADO y listo para retirar!\n`;
+          mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
+          
+          if (trabajoInput.trim()) {
+            mensajeWs += `🔍 *Trabajo Realizado:* ${trabajoInput.trim()}\n`;
+          }
+
+          if (presAnterior > 0) {
+            mensajeWs += `\n💵 *Presupuesto Total:* $${presAnterior.toLocaleString("es-AR")}`;
+            if (seniaActual > 0) mensajeWs += ` | *Seña:* $${seniaActual.toLocaleString("es-AR")}`;
+            mensajeWs += `\n👉 *SALDO A ABONAR AL RETIRAR:* *$${nuevoSaldo.toLocaleString("es-AR")}*`;
+          }
+
+          mensajeWs += `\n\n📍 Podés pasar a retirarlo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
+
+          if (ord.celular) {
+            window.open(`https://wa.me/549${ord.celular}?text=${encodeURIComponent(mensajeWs)}`, '_blank');
+          }
+
+          alert("Equipo reparado con éxito. Pasó a la solapa 'Listos / Reparados'.");
+          cargarPanelTaller();
+        } catch (e) {
+          console.error(e);
+          alert("Error al actualizar el estado.");
+        }
+      }
+    }
+
+    async function volverATomarTecnico(nroOrden) {
+      const ord = listaOrdenesCache.find(o => o.nroOrden === nroOrden);
+      if (!ord) return;
+
+      const motivoVolver = prompt(`Ingresá el motivo por el cual la Orden N° ${nroOrden} vuelve a revisión técnica (${ord.tecnico}):`, "Reingreso por garantía / revisión adicional");
+      if (motivoVolver === null) return;
+
+      const fechaHoraActual = obtenerFechaHoraActual();
+      const nuevoEvento = {
+        fecha: fechaHoraActual,
+        detalle: `Vuelve a taller de ${ord.tecnico} (Garantía/Revisión). Motivo: ${motivoVolver.trim()}`
+      };
+      const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+
+      if (confirm(`¿Regresar el equipo a la lista de pendientes de ${ord.tecnico}?`)) {
+        try {
+          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+          await window.updateDoc(docRef, {
+            estado: "Ingresado / En Diagnóstico",
+            trabajoRealizado: `[GARANTÍA/REINGRESO - ${fechaHoraActual}]: ${motivoVolver.trim()} (Anterior: ${ord.trabajoRealizado || 'Sin detalle'})`,
+            fechaModificacion: fechaHoraActual,
+            historialEventos: historialActualizado
+          });
+
+          alert(`La orden volvió a los pendientes de ${ord.tecnico}.`);
+          cargarPanelTaller();
+        } catch (e) {
+          console.error(e);
+          alert("Error al mover la orden.");
+        }
+      }
+    }
+
+    async function solicitarNuevoPresupuesto(nroOrden) {
+      const ord = listaOrdenesCache.find(o => o.nroOrden === nroOrden);
+      if (!ord) return;
+
+      const trabajoInput = prompt(`Explicación detallada para el cliente (por qué cambia el presupuesto / qué repuesto falta):`, ord.trabajoRealizado || "");
+      if (trabajoInput === null) return;
+
+      const presBase = ord.presupuestoBase || ord.presupuesto || 0;
+      const seniaActual = ord.senia || 0;
+
+      const respAdicional = prompt(`Presupuesto base registrado: $${presBase.toLocaleString("es-AR")}\nIngresá el MONTO ADICIONAL a sumar por el nuevo repuesto/trabajo:`, "0");
+      if (respAdicional === null || isNaN(parseFloat(respAdicional))) return;
+
+      const adicionalCobrar = parseFloat(respAdicional);
+      const nuevoPresupuestoTotal = presBase + adicionalCobrar;
+      const nuevoSaldo = nuevoPresupuestoTotal - seniaActual;
+      const fechaHoraActual = obtenerFechaHoraActual();
+      const nuevoEstado = "Esperando Confirmación / Nuevo Presupuesto";
+
+      const nuevoEvento = {
+        fecha: fechaHoraActual,
+        detalle: `Se envió nuevo presupuesto (Base: $${presBase.toLocaleString("es-AR")} + Adicional: $${adicionalCobrar.toLocaleString("es-AR")} = Total: $${nuevoPresupuestoTotal.toLocaleString("es-AR")}). Motivo: ${trabajoInput.trim()}`
+      };
+
+      const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+
+      if (confirm(`¿Enviar solicitud de nuevo presupuesto por WhatsApp al cliente?`)) {
+        try {
+          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+          await window.updateDoc(docRef, {
+            estado: nuevoEstado,
+            trabajoRealizado: trabajoInput.trim(),
+            presupuestoBase: presBase,
+            presupuestoAdicional: adicionalCobrar,
+            presupuesto: nuevoPresupuestoTotal,
+            saldo: nuevoSaldo,
+            fechaModificacion: fechaHoraActual,
+            historialEventos: historialActualizado
+          });
+
+          let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
+          mensajeWs += `📌 *Estado Actual:* Esperando tu confirmación de presupuesto.\n`;
+          mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
+          
+          if (trabajoInput.trim()) {
+            mensajeWs += `🔍 *Explicación Técnica:* ${trabajoInput.trim()}\n`;
+          }
+
+          mensajeWs += `\n💵 *Resumen de Presupuesto:*`;
+          if (presBase > 0) mensajeWs += `\n• Presupuesto inicial base: $${presBase.toLocaleString("es-AR")}`;
+          if (adicionalCobrar > 0) mensajeWs += `\n• Adicional repuesto/trabajo: $${adicionalCobrar.toLocaleString("es-AR")}`;
+          mensajeWs += `\n• *NUEVO PRESUPUESTO TOTAL:* $${nuevoPresupuestoTotal.toLocaleString("es-AR")}`;
+          
+          if (seniaActual > 0) mensajeWs += `\n• Seña entregada previamente: -$${seniaActual.toLocaleString("es-AR")}`;
+          mensajeWs += `\n👉 *NUEVO SALDO A ABONAR:* *$${nuevoSaldo.toLocaleString("es-AR")}*`;
+          mensajeWs += `\n\nPor favor respondé a este mensaje confirmando si *ACEPTÁS* para comenzar con el trabajo. Podés seguir el estado desde: ${configApp.linkApp}`;
+
+          if (ord.celular) {
+            window.open(`https://wa.me/549${ord.celular}?text=${encodeURIComponent(mensajeWs)}`, '_blank');
+          }
+
+          alert("Solicitud enviada. El equipo quedó en 'Esperando Confirmación'.");
+          cargarPanelTaller();
+        } catch (e) {
+          console.error(e);
+          alert("Error al actualizar estado.");
+        }
+      }
+    }
+
+    async function responderPresupuesto(nroOrden, acepto) {
+      const ord = listaOrdenesCache.find(o => o.nroOrden === nroOrden);
+      if (!ord) return;
+
+      const fechaHoraActual = obtenerFechaHoraActual();
+
+      if (acepto) {
+        if (confirm(`El cliente ACEPTÓ el presupuesto. El equipo volverá a los pendientes de ${ord.tecnico}.`)) {
+          const nuevoEvento = {
+            fecha: fechaHoraActual,
+            detalle: `El cliente ACEPTÓ el nuevo presupuesto (Total: $${(ord.presupuesto || 0).toLocaleString("es-AR")}). Vuelve a reparación.`
+          };
+          const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+
+          try {
+            const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+            await window.updateDoc(docRef, {
+              estado: "Presupuesto Aceptado / En Reparación",
+              fechaModificacion: fechaHoraActual,
+              historialEventos: historialActualizado
+            });
+
+            alert(`Presupuesto aceptado. La orden volvió a los pendientes de ${ord.tecnico}.`);
+            cargarPanelTaller();
+          } catch (e) {
+            console.error(e);
+            alert("Error al guardar respuesta.");
+          }
+        }
+      } else {
+        const revInput = prompt(`El cliente RECHAZÓ el presupuesto. Ingresá el costo del servicio técnico por REVISIÓN/DIAGNÓSTICO (si no se cobra nada, ingresá 0):`, "0");
+        if (revInput === null) return;
+
+        const costoRevision = parseFloat(revInput) || 0;
+        const seniaActual = ord.senia || 0;
+        let devolucion = 0;
+        let saldoAbonar = 0;
+
+        if (seniaActual > costoRevision) devolucion = seniaActual - costoRevision;
+        else if (costoRevision > seniaActual) saldoAbonar = costoRevision - seniaActual;
+
+        const nuevoEvento = {
+          fecha: fechaHoraActual,
+          detalle: `El cliente RECHAZÓ el nuevo presupuesto. Pasó a Sin Reparación / Presupuesto Rechazado (Costo revisión: $${costoRevision.toLocaleString("es-AR")}).`
+        };
+        const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+
+        if (confirm(`¿Pasar a 'Listos / Reparados' y enviar notificación de retiro por WhatsApp al cliente?`)) {
+          try {
+            const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+            await window.updateDoc(docRef, {
+              estado: "Sin Reparación / Presupuesto Rechazado",
+              presupuesto: 0,
+              costoRevision: costoRevision,
+              saldo: saldoAbonar,
+              fechaModificacion: fechaHoraActual,
+              historialEventos: historialActualizado
+            });
+
+            // Mensaje completo de WhatsApp al rechazar presupuesto
+            let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
+            mensajeWs += `📌 *Estado Actual:* Presupuesto Rechazado - Equipo listo para retirar rearmado.\n`;
+            mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
+            
+            if (ord.trabajoRealizado) {
+              mensajeWs += `🔍 *Detalle / Informe Técnico:* ${ord.trabajoRealizado}\n`;
+            }
+
+            mensajeWs += `\n💵 *Resumen de Cuenta:*`;
+            mensajeWs += `\n• Servicio Técnico por Revisión: $${costoRevision.toLocaleString("es-AR")}`;
+
+            if (seniaActual > 0) {
+              mensajeWs += `\n• Seña entregada inicialmente: $${seniaActual.toLocaleString("es-AR")}`;
+              if (devolucion > 0) {
+                mensajeWs += `\n👉 *REINTEGRO A FAVOR DEL CLIENTE:* Se te devolverán *$${devolucion.toLocaleString("es-AR")}* de la seña al retirar el equipo.`;
+              } else if (saldoAbonar > 0) {
+                mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR:* *$${saldoAbonar.toLocaleString("es-AR")}*.`;
+              } else {
+                mensajeWs += `\n👉 *SALDO PENDIENTE:* $0 (La seña cubrió el costo de revisión).`;
+              }
+            } else {
+              if (costoRevision > 0) {
+                mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR:* *$${costoRevision.toLocaleString("es-AR")}*.`;
+              } else {
+                mensajeWs += `\n👉 *SALDO PENDIENTE:* $0 (Sin costo de revisión).`;
+              }
+            }
+
+            mensajeWs += `\n\n📍 Ya podés pasar a retirarlo armado por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
+
+            if (ord.celular) {
+              window.open(`https://wa.me/549${ord.celular}?text=${encodeURIComponent(mensajeWs)}`, '_blank');
+            }
+
+            alert("Orden registrada como rechazada. Se envió el aviso por WhatsApp y pasó a 'Listos / Reparados'.");
+            cargarPanelTaller();
+          } catch (e) {
+            console.error(e);
+            alert("Error al rechazar presupuesto.");
+          }
+        }
+      }
+    }
+
+    async function marcarSinReparacion(nroOrden) {
+      const ord = listaOrdenesCache.find(o => o.nroOrden === nroOrden);
+      if (!ord) return;
+
+      const motivoInput = prompt(`Explicación técnica de por qué no tiene reparación:`, ord.trabajoRealizado || "");
+      if (motivoInput === null) return;
+
+      const revisionInput = prompt(`Ingresá el costo del servicio técnico por REVISIÓN / DIAGNÓSTICO (si no cobra nada, ingresá 0):`, "0");
+      if (revisionInput === null) return;
+
+      const costoRevision = parseFloat(revisionInput) || 0;
+      const seniaActual = ord.senia || 0;
+      const fechaHoraActual = obtenerFechaHoraActual();
+
+      let devolucion = 0;
+      let saldoAbonar = 0;
+
+      if (seniaActual > costoRevision) devolucion = seniaActual - costoRevision;
+      else if (costoRevision > seniaActual) saldoAbonar = costoRevision - seniaActual;
+
+      const nuevoEvento = {
+        fecha: fechaHoraActual,
+        detalle: `Marcado como Sin Reparación por ${ord.tecnico}. Motivo: ${motivoInput.trim()}. Costo revisión: $${costoRevision.toLocaleString("es-AR")}`
+      };
+      const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+
+      if (confirm(`¿Confirmar "Sin Reparación / Sin Solución" con revisión de $${costoRevision.toLocaleString("es-AR")}?`)) {
+        try {
+          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+          await window.updateDoc(docRef, {
+            estado: "Sin Reparación / Presupuesto Rechazado",
+            trabajoRealizado: motivoInput.trim(),
+            presupuesto: 0,
+            costoRevision: costoRevision,
+            saldo: saldoAbonar,
+            fechaModificacion: fechaHoraActual,
+            historialEventos: historialActualizado
+          });
+
+          let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
+          mensajeWs += `📌 *Estado Actual:* Sin Reparación / Sin Solución\n`;
+          mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
+          
+          if (motivoInput.trim()) {
+            mensajeWs += `🔍 *Informe Técnico:* ${motivoInput.trim()}\n`;
+          }
+
+          mensajeWs += `\n💵 *Resumen de Revisión:*`;
+          mensajeWs += `\n• Costo por Servicio Técnico de Revisión: $${costoRevision.toLocaleString("es-AR")}`;
+          
+          if (seniaActual > 0) {
+            mensajeWs += `\n• Seña entregada inicialmente: $${seniaActual.toLocaleString("es-AR")}`;
+            if (devolucion > 0) {
+              mensajeWs += `\n👉 *REINTEGRO A FAVOR DEL CLIENTE:* Se le devolverán *$${devolucion.toLocaleString("es-AR")}* de seña al momento de retirar el equipo.`;
+            } else if (saldoAbonar > 0) {
+              mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR POR REVISIÓN:* *$${saldoAbonar.toLocaleString("es-AR")}*.`;
+            } else {
+              mensajeWs += `\n👉 *SALDO:* $0 (La seña cubrió exactamente la revisión técnica).`;
+            }
+          } else {
+            if (costoRevision > 0) {
+              mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR:* *$${costoRevision.toLocaleString("es-AR")}*.`;
+            } else {
+              mensajeWs += `\n👉 *SALDO:* $0 (Sin costo de revisión).`;
+            }
+          }
+
+          mensajeWs += `\n\n📍 Podés pasar a retirar tu equipo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
+
+          if (ord.celular) {
+            window.open(`https://wa.me/549${ord.celular}?text=${encodeURIComponent(mensajeWs)}`, '_blank');
+          }
+
+          alert("Registrado como Sin Reparación correctamente. Pasó a 'Listos / Reparados'.");
+          cargarPanelTaller();
+        } catch (e) {
+          console.error(e);
+          alert("Error al actualizar el estado.");
+        }
+      }
+    }
+
+    async function entregarOrden(nroOrden) {
+      const ord = listaOrdenesCache.find(o => o.nroOrden === nroOrden);
+      if (!ord) return;
+
+      let saldoSugerido = ord.saldo || 0;
+      let textoPregunta = `El cliente debe un saldo final de $${saldoSugerido.toLocaleString("es-AR")}. ¿Cuánto abona al retirar?`;
+
+      if (ord.estado.includes("Sin Reparación") && ord.senia > ord.costoRevision) {
+        const dev = ord.senia - ord.costoRevision;
+        textoPregunta = `Atención: Hay un reintegro A FAVOR del cliente de $${dev.toLocaleString("es-AR")}.\nIngresá el monto de cobro (ingresá 0 si le devuelves dinero):`;
+        saldoSugerido = 0;
+      }
+
+      const montoCobrar = prompt(textoPregunta, saldoSugerido);
+      if (montoCobrar === null) return;
+
+      const montoRetiro = parseFloat(montoCobrar) || 0;
+      const fechaHoraRetiro = obtenerFechaHoraActual();
+
+      const nuevoEvento = {
+        fecha: fechaHoraRetiro,
+        detalle: `Equipo entregado al cliente. Se cobró: $${montoRetiro.toLocaleString("es-AR")}`
+      };
+      const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+
+      try {
+        const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+        await window.updateDoc(docRef, {
+          estado: "Retirado / Entregado",
+          saldo: 0,
+          montoCobradoAlRetirar: montoRetiro,
+          fechaRetiro: fechaHoraRetiro,
+          fechaModificacion: fechaHoraRetiro,
+          historialEventos: historialActualizado
+        });
+
+        const mensajeFinal = `¡Hola ${ord.nombre}! Te confirmamos que retiraste tu equipo de MAXICOMPU el día ${fechaHoraRetiro}. ¡Muchas gracias por confiar en nosotros!`;
+        if (ord.celular) {
+          window.open(`https://wa.me/549${ord.celular}?text=${encodeURIComponent(mensajeFinal)}`, '_blank');
+        }
+
+        alert("Equipo entregado y registrado en la caja de " + ord.tecnico);
+        cargarPanelTaller();
+      } catch (e) {
+        console.error(e);
+        alert("Error al registrar la entrega.");
+      }
+    }
+
+    async function guardarConfiguracion() {
+      const nuevoLink = document.getElementById("cfg-link").value.trim();
+      const nuevaClave = document.getElementById("cfg-pass").value.trim();
+
+      if (!nuevoLink || !nuevaClave) return alert("Completá todos los campos.");
+
+      configApp.linkApp = nuevoLink;
+      configApp.claveAdmin = nuevaClave;
+
+      try {
+        await window.setDoc(window.doc(window.db, "configuracion_maxicompu", "general"), configApp);
+        alert("Configuración guardada con éxito.");
+        cargarPanelTaller();
+      } catch (e) {
+        console.error(e);
+        alert("Error al guardar.");
+      }
+    }
+  </script>
+</body>
+</html>
