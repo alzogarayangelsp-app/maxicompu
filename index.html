@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MAXICOMPU - Servicio Técnico</title>
+
+  <!-- Ícono para pestaña del navegador y App Móvil / Acceso Directo -->
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+  <meta name="theme-color" content="#1d4ed8">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -36,10 +42,13 @@
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
   <div class="max-w-xl mx-auto bg-white min-h-screen shadow-lg flex flex-col justify-between">
     
-    <!-- Header -->
-    <header class="bg-blue-700 text-white p-4 text-center font-bold text-xl shadow flex justify-between items-center">
-      <span onclick="mostrarVista('login-view')" class="cursor-pointer">💻 MAXICOMPU</span>
-      <button onclick="solicitarAccesoAdmin()" class="text-xs bg-blue-800 hover:bg-blue-900 px-2 py-1 rounded transition">Panel Taller</button>
+    <!-- Header con Logo -->
+    <header class="bg-blue-700 text-white p-3 text-center font-bold text-xl shadow flex justify-between items-center">
+      <div onclick="mostrarVista('login-view')" class="flex items-center gap-2 cursor-pointer">
+        <img src="logo.png" alt="MAXICOMPU" class="h-9 w-9 object-contain bg-white rounded-full p-0.5">
+        <span class="font-bold text-xl">MAXICOMPU</span>
+      </div>
+      <button onclick="solicitarAccesoAdmin()" class="text-xs bg-blue-800 hover:bg-blue-900 px-2.5 py-1.5 rounded transition">Panel Taller</button>
     </header>
 
     <!-- Contenido Principal -->
@@ -356,7 +365,6 @@
       document.getElementById("cli-falla").innerText = orden.falla;
       document.getElementById("cli-tecnico").innerText = orden.tecnico;
 
-      // Renderizar Historial de Eventos
       const listaHist = document.getElementById("cli-historial-lista");
       listaHist.innerHTML = "";
       const eventos = orden.historialEventos || [
@@ -369,7 +377,6 @@
         listaHist.appendChild(p);
       });
 
-      // Montos
       const presBase = orden.presupuestoBase || orden.presupuesto || 0;
       const presAdic = orden.presupuestoAdicional || 0;
       const presTotal = orden.presupuesto || (presBase + presAdic);
@@ -664,7 +671,6 @@
         const presAdic = ord.presupuestoAdicional || 0;
         const presTotal = ord.presupuesto || (presBase + presAdic);
 
-        // Generar lista de eventos cronológicos
         let htmlHistorialTecnico = "";
         const eventos = ord.historialEventos || [
           { fecha: ord.fechaIngreso || "-", detalle: "Ingreso a taller" }
@@ -674,7 +680,6 @@
           htmlHistorialTecnico += `<li class="text-[11px] text-gray-600">• <strong class="text-gray-800">${ev.fecha}:</strong> ${ev.detalle}</li>`;
         });
 
-        // SOLAPA RETIRADOS: Únicamente botón de volver a tomar (Garantía)
         if (esSolapaRetirado) {
           card.innerHTML = `
             <div class="flex justify-between items-start border-b pb-2">
@@ -698,7 +703,6 @@
             </div>
           `;
         } else if (esSolapaTodos) {
-          // SOLAPA TODOS: Historial + Volver a tomar + (Boton Entregar si NO fue entregado aún)
           card.innerHTML = `
             <div class="flex justify-between items-start border-b pb-2">
               <div>
@@ -726,7 +730,6 @@
             </div>
           `;
         } else {
-          // VISTA REGULAR PARA LAS DEMÁS SOLAPAS (Ángel, Leo, Listos, Esperando Confirmación)
           const otroTecnico = ord.tecnico === "Ángel" ? "Leo" : "Ángel";
           card.innerHTML = `
             <div class="flex justify-between items-start border-b pb-2">
@@ -738,7 +741,6 @@
               <span class="font-bold px-2 py-1 rounded text-[10px] ${obtenerClaseEstado(ord.estado)}">${ord.estado}</span>
             </div>
 
-            <!-- Bitácora de Pasos del Técnico -->
             <details class="bg-amber-50 p-2 rounded border border-amber-200">
               <summary class="font-bold text-amber-900 cursor-pointer text-[11px]">📖 Historial de Movimientos (${eventos.length})</summary>
               <ul class="mt-1 space-y-1 pl-1">
@@ -746,7 +748,6 @@
               </ul>
             </details>
 
-            <!-- Desglose de Montos -->
             <div class="bg-gray-50 p-2 rounded text-[11px] space-y-0.5">
               <div class="flex justify-between text-gray-600"><span>Base: <strong>$${presBase.toLocaleString("es-AR")}</strong></span> <span>Agregado: <strong class="text-purple-700">+$${presAdic.toLocaleString("es-AR")}</strong></span> <span>Seña: <strong>$${(ord.senia || 0).toLocaleString("es-AR")}</strong></span></div>
               <div class="flex justify-between font-bold border-t pt-1 text-blue-900 text-xs"><span>TOTAL: $${presTotal.toLocaleString("es-AR")}</span> <span>SALDO: $${(ord.saldo || 0).toLocaleString("es-AR")}</span></div>
@@ -761,20 +762,17 @@
                 </div>
               </div>
             ` : esListoReparado ? `
-              <!-- SOLAPA LISTOS / REPARADOS: ENTREGAR O VOLVER A TOMAR -->
               <div class="flex gap-2 pt-1">
                 <button onclick="entregarOrden('${ord.nroOrden}')" class="w-1/2 bg-blue-800 text-white py-2 rounded font-bold hover:bg-blue-900 text-xs shadow">📦 Entregar al Cliente</button>
                 <button onclick="volverATomarTecnico('${ord.nroOrden}')" class="w-1/2 bg-amber-600 text-white py-2 rounded font-bold hover:bg-amber-700 text-xs shadow">↩️ Volver a Taller (${ord.tecnico})</button>
               </div>
             ` : `
-              <!-- SOLAPAS TÉCNICO (ÁNGEL / LEO) -->
               <div class="space-y-1.5 pt-1">
                 <div class="flex gap-1 flex-wrap">
                   <button onclick="marcarReparado('${ord.nroOrden}')" class="bg-green-600 text-white px-2 py-1 rounded font-semibold hover:bg-green-700">✅ Reparado</button>
                   <button onclick="solicitarNuevoPresupuesto('${ord.nroOrden}')" class="bg-purple-600 text-white px-2 py-1 rounded font-semibold hover:bg-purple-700">📋 Nuevo Presupuesto</button>
                   <button onclick="marcarSinReparacion('${ord.nroOrden}')" class="bg-red-600 text-white px-2 py-1 rounded font-semibold hover:bg-red-700">❌ Sin Reparación</button>
                 </div>
-                <!-- BOTÓN REASIGNAR TÉCNICO -->
                 <button onclick="reasignarTecnico('${ord.nroOrden}', '${otroTecnico}')" class="w-full bg-gray-600 text-white py-1 rounded font-bold hover:bg-gray-700 text-[11px] shadow-sm">🔀 Pasar Orden a ${otroTecnico}</button>
               </div>
             `}
