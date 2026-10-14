@@ -42,14 +42,14 @@
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
   <div class="max-w-xl mx-auto bg-white min-h-screen shadow-lg flex flex-col justify-between relative">
     
-    <!-- Modal Personalizado para Opciones de WhatsApp -->
+    <!-- Ventana flotante clara para elegir WhatsApp o solo guardar -->
     <div id="custom-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl space-y-4 text-center">
-        <h3 id="modal-titulo" class="font-bold text-base text-blue-900">¿Cómo deseas proceder?</h3>
-        <p id="modal-texto" class="text-xs text-gray-600">Elegí una opción para continuar con el movimiento:</p>
+        <h3 class="font-bold text-base text-blue-900">¿Deseas enviar el WhatsApp al cliente?</h3>
+        <p class="text-xs text-gray-600">El movimiento ya fue guardado en el sistema.</p>
         <div class="space-y-2 pt-2">
           <button id="btn-modal-enviar" class="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-bold text-xs shadow transition">📲 Guardar y Enviar WhatsApp</button>
-          <button id="btn-modal-solo" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold text-xs shadow transition">📁 Solo Guardar</button>
+          <button id="btn-modal-solo" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold text-xs shadow transition">📁 Solo Guardar (Cerrar)</button>
         </div>
       </div>
     </div>
@@ -282,14 +282,18 @@
     let listaOrdenesCache = [];
     let filtroActualAdmin = "TODOS";
 
-    function mostrarModalWhatsApp(celular, mensaje, callbackExito) {
+    function mostrarModalWhatsApp(celular, mensaje, callbackFin) {
+      if (!celular) {
+        if (callbackFin) callbackFin();
+        return;
+      }
+
       const modal = document.getElementById("custom-modal");
       const btnEnviar = document.getElementById("btn-modal-enviar");
       const btnSolo = document.getElementById("btn-modal-solo");
 
       modal.classList.remove("hidden");
 
-      // Limpiar eventos anteriores clonando los botones
       const nuevoBtnEnviar = btnEnviar.cloneNode(true);
       const nuevoBtnSolo = btnSolo.cloneNode(true);
       btnEnviar.parentNode.replaceChild(nuevoBtnEnviar, btnEnviar);
@@ -297,15 +301,13 @@
 
       nuevoBtnEnviar.addEventListener("click", () => {
         modal.classList.add("hidden");
-        if (celular) {
-          window.open(`https://web.whatsapp.com/send?phone=549${celular}&text=${encodeURIComponent(mensaje)}`, '_blank');
-        }
-        if (callbackExito) callbackExito();
+        window.open(`https://web.whatsapp.com/send?phone=549${celular}&text=${encodeURIComponent(mensaje)}`, '_blank');
+        if (callbackFin) callbackFin();
       });
 
       nuevoBtnSolo.addEventListener("click", () => {
         modal.classList.add("hidden");
-        if (callbackExito) callbackExito();
+        if (callbackFin) callbackFin();
       });
     }
 
@@ -552,17 +554,10 @@
 
         const textoWs = `Hola ${nombre}! Recibimos tu ${tipoEquipo} (${modelo}) en MAXICOMPU el ${fechaIngreso}. Orden N°: *${nroOrden}*. Falla: ${falla}. ${detallePrecioWs} Podés consultar el estado ingresando tu celular y orden en: ${configApp.linkApp}`;
         
-        if (celular) {
-          mostrarModalWhatsApp(celular, textoWs, () => {
-            alert(`¡Orden N° ${nroOrden} registrada correctamente!`);
-            limpiarFormularioOrden();
-            cargarPanelTaller();
-          });
-        } else {
-          alert(`¡Orden N° ${nroOrden} registrada correctamente!`);
-          limpiarFormularioOrden();
+        limpiarFormularioOrden();
+        mostrarModalWhatsApp(celular, textoWs, () => {
           cargarPanelTaller();
-        }
+        });
       } catch (e) {
         console.error("Error al guardar la orden:", e);
         alert("Error al conectar con la base de datos.");
@@ -833,27 +828,23 @@
       const tecnicoAnterior = ord.tecnico;
       const fechaHoraActual = obtenerFechaHoraActual();
 
-      if (confirm(`¿Confirmás transferir la Orden N° ${nroOrden} de ${tecnicoAnterior} a ${nuevoTecnico}?`)) {
-        const nuevoEvento = {
-          fecha: fechaHoraActual,
-          detalle: `Orden reasignada de ${tecnicoAnterior} a ${nuevoTecnico}.`
-        };
-        const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+      const nuevoEvento = {
+        fecha: fechaHoraActual,
+        detalle: `Orden reasignada de ${tecnicoAnterior} a ${nuevoTecnico}.`
+      };
+      const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-        try {
-          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
-          await window.updateDoc(docRef, {
-            tecnico: nuevoTecnico,
-            fechaModificacion: fechaHoraActual,
-            historialEventos: historialActualizado
-          });
-
-          alert(`Orden reasignada a ${nuevoTecnico} con éxito.`);
-          cargarPanelTaller();
-        } catch (e) {
-          console.error(e);
-          alert("Error al reasignar el técnico.");
-        }
+      try {
+        const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+        await window.updateDoc(docRef, {
+          tecnico: nuevoTecnico,
+          fechaModificacion: fechaHoraActual,
+          historialEventos: historialActualizado
+        });
+        cargarPanelTaller();
+      } catch (e) {
+        console.error(e);
+        alert("Error al reasignar el técnico.");
       }
     }
 
@@ -901,15 +892,9 @@
 
         mensajeWs += `\n\n📍 Podés pasar a retirarlo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
 
-        if (ord.celular) {
-          mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
-            alert("Equipo reparado con éxito. Pasó a la solapa 'Listos / Reparados'.");
-            cargarPanelTaller();
-          });
-        } else {
-          alert("Equipo reparado con éxito. Pasó a la solapa 'Listos / Reparados'.");
+        mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
           cargarPanelTaller();
-        }
+        });
       } catch (e) {
         console.error(e);
         alert("Error al actualizar el estado.");
@@ -930,22 +915,18 @@
       };
       const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-      if (confirm(`¿Regresar el equipo a la lista de pendientes de ${ord.tecnico}?`)) {
-        try {
-          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
-          await window.updateDoc(docRef, {
-            estado: "Ingresado / En Diagnóstico",
-            trabajoRealizado: `[GARANTÍA/REINGRESO - ${fechaHoraActual}]: ${motivoVolver.trim()} (Anterior: ${ord.trabajoRealizado || 'Sin detalle'})`,
-            fechaModificacion: fechaHoraActual,
-            historialEventos: historialActualizado
-          });
-
-          alert(`La orden volvió a los pendientes de ${ord.tecnico}.`);
-          cargarPanelTaller();
-        } catch (e) {
-          console.error(e);
-          alert("Error al mover la orden.");
-        }
+      try {
+        const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+        await window.updateDoc(docRef, {
+          estado: "Ingresado / En Diagnóstico",
+          trabajoRealizado: `[GARANTÍA/REINGRESO - ${fechaHoraActual}]: ${motivoVolver.trim()} (Anterior: ${ord.trabajoRealizado || 'Sin detalle'})`,
+          fechaModificacion: fechaHoraActual,
+          historialEventos: historialActualizado
+        });
+        cargarPanelTaller();
+      } catch (e) {
+        console.error(e);
+        alert("Error al mover la orden.");
       }
     }
 
@@ -1005,15 +986,9 @@
         mensajeWs += `\n👉 *NUEVO SALDO A ABONAR:* *$${nuevoSaldo.toLocaleString("es-AR")}*`;
         mensajeWs += `\n\nPor favor respondé a este mensaje confirmando si *ACEPTÁS* para comenzar con el trabajo. Podés seguir el estado desde: ${configApp.linkApp}`;
 
-        if (ord.celular) {
-          mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
-            alert("Solicitud guardada. El equipo quedó en 'Esperando Confirmación'.");
-            cargarPanelTaller();
-          });
-        } else {
-          alert("Solicitud guardada. El equipo quedó en 'Esperando Confirmación'.");
+        mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
           cargarPanelTaller();
-        }
+        });
       } catch (e) {
         console.error(e);
         alert("Error al actualizar estado.");
@@ -1027,9 +1002,10 @@
       const fechaHoraActual = obtenerFechaHoraActual();
 
       if (acepto) {
+        const nuevoventoDetalle = `El cliente ACEPTÓ el nuevo presupuesto (Total: $${(ord.presupuesto || 0).toLocaleString("es-AR")}). Vuelve a reparación.`;
         const nuevoEvento = {
           fecha: fechaHoraActual,
-          detalle: `El cliente ACEPTÓ el nuevo presupuesto (Total: $${(ord.presupuesto || 0).toLocaleString("es-AR")}). Vuelve a reparación.`
+          detalle: nuevoventoDetalle
         };
         const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
@@ -1043,15 +1019,9 @@
 
           let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU*. Te confirmamos que usted aceptó el nuevo diagnóstico/presupuesto de su ${ord.tipoEquipo} (Orden N° *${nroOrden}*). Queda registrado en el sistema y el equipo continúa en reparación con *${ord.tecnico}*.\n\nPodés seguir el estado desde: ${configApp.linkApp}`;
 
-          if (ord.celular) {
-            mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
-              alert(`Presupuesto aceptado. La orden volvió a los pendientes de ${ord.tecnico}.`);
-              cargarPanelTaller();
-            });
-          } else {
-            alert(`Presupuesto aceptado. La orden volvió a los pendientes de ${ord.tecnico}.`);
+          mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
             cargarPanelTaller();
-          }
+          });
         } catch (e) {
           console.error(e);
           alert("Error al guardar respuesta.");
@@ -1070,8 +1040,7 @@
 
         const nuevoEvento = {
           fecha: fechaHoraActual,
-          detalle: `El cliente RECHAZÓ el nuevo presupuesto. Pasó a Sin Reparación / Presupuesto Rechazado (Costo revisión: $${costoRevision.toLocaleString("es-AR"
-          )}).`
+          detalle: `El cliente RECHAZÓ el nuevo presupuesto. Pasó a Sin Reparación / Presupuesto Rechazado (Costo revisión: $${costoRevision.toLocaleString("es-AR")}).`
         };
         const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
@@ -1116,15 +1085,9 @@
 
           mensajeWs += `\n\n📍 Ya podés pasar a retirarlo armado por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
 
-          if (ord.celular) {
-            mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
-              alert("Orden registrada como rechazada y pasada a 'Listos / Reparados'.");
-              cargarPanelTaller();
-            });
-          } else {
-            alert("Orden registrada como rechazada y pasada a 'Listos / Reparados'.");
+          mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
             cargarPanelTaller();
-          }
+          });
         } catch (e) {
           console.error(e);
           alert("Error al rechazar presupuesto.");
@@ -1200,15 +1163,9 @@
 
         mensajeWs += `\n\n📍 Podés pasar a retirar tu equipo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
 
-        if (ord.celular) {
-          mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
-            alert("Registrado como Sin Reparación correctamente. Pasó a 'Listos / Reparados'.");
-            cargarPanelTaller();
-          });
-        } else {
-          alert("Registrado como Sin Reparación correctamente. Pasó a 'Listos / Reparados'.");
+        mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
           cargarPanelTaller();
-        }
+        });
       } catch (e) {
         console.error(e);
         alert("Error al actualizar el estado.");
@@ -1252,15 +1209,9 @@
         });
 
         const mensajeFinal = `¡Hola ${ord.nombre}! Te confirmamos que retiraste tu equipo de MAXICOMPU el día ${fechaHoraRetiro}. ¡Muchas gracias por confiar en nosotros!`;
-        if (ord.celular) {
-          mostrarModalWhatsApp(ord.celular, mensajeFinal, () => {
-            alert("Equipo entregado y registrado en la caja de " + ord.tecnico);
-            cargarPanelTaller();
-          });
-        } else {
-          alert("Equipo entregado y registrado en la caja de " + ord.tecnico);
+        mostrarModalWhatsApp(ord.celular, mensajeFinal, () => {
           cargarPanelTaller();
-        }
+        });
       } catch (e) {
         console.error(e);
         alert("Error al registrar la entrega.");
