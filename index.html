@@ -214,7 +214,7 @@
             </select>
           </div>
 
-          <button onclick="guardarNuevaOrden()" class="w-full bg-blue-600 text-white py-2.5 rounded font-semibold text-xs hover:bg-blue-700 transition shadow">💾 Guardar Orden y Enviar WhatsApp</button>
+          <button onclick="guardarNuevaOrden()" class="w-full bg-blue-600 text-white py-2.5 rounded font-semibold text-xs hover:bg-blue-700 transition shadow">💾 Guardar Orden</button>
         </div>
 
         <!-- Buscador y Filtros con Badges de Cantidad -->
@@ -514,7 +514,10 @@
         const textoWs = `Hola ${nombre}! Recibimos tu ${tipoEquipo} (${modelo}) en MAXICOMPU el ${fechaIngreso}. Orden N°: *${nroOrden}*. Falla: ${falla}. ${detallePrecioWs} Podés consultar el estado ingresando tu celular y orden en: ${configApp.linkApp}`;
         
         if (celular) {
-          window.open(`https://wa.me/549${celular}?text=${encodeURIComponent(textoWs)}`, '_blank');
+          const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar el mensaje por WhatsApp al cliente?");
+          if (enviarWs) {
+            window.open(`https://web.whatsapp.com/send?phone=549${celular}&text=${encodeURIComponent(textoWs)}`, '_blank');
+          }
         }
 
         alert(`¡Orden N° ${nroOrden} registrada correctamente!`);
@@ -833,7 +836,7 @@
       };
       const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-      if (confirm(`¿Marcar como REPARADO y enviar aviso de retiro por WhatsApp al cliente?`)) {
+      if (confirm(`¿Marcar la orden como REPARADA en el sistema?`)) {
         try {
           const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
           await window.updateDoc(docRef, {
@@ -860,7 +863,10 @@
           mensajeWs += `\n\n📍 Podés pasar a retirarlo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
 
           if (ord.celular) {
-            window.open(`https://wa.me/549${ord.celular}?text=${encodeURIComponent(mensajeWs)}`, '_blank');
+            const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar el aviso por WhatsApp al cliente?");
+            if (enviarWs) {
+              window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeWs)}`, '_blank');
+            }
           }
 
           alert("Equipo reparado con éxito. Pasó a la solapa 'Listos / Reparados'.");
@@ -931,7 +937,7 @@
 
       const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-      if (confirm(`¿Enviar solicitud de nuevo presupuesto por WhatsApp al cliente?`)) {
+      if (confirm(`¿Guardar el nuevo presupuesto en el sistema?`)) {
         try {
           const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
           await window.updateDoc(docRef, {
@@ -963,10 +969,13 @@
           mensajeWs += `\n\nPor favor respondé a este mensaje confirmando si *ACEPTÁS* para comenzar con el trabajo. Podés seguir el estado desde: ${configApp.linkApp}`;
 
           if (ord.celular) {
-            window.open(`https://wa.me/549${ord.celular}?text=${encodeURIComponent(mensajeWs)}`, '_blank');
+            const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar la solicitud de nuevo presupuesto por WhatsApp al cliente?");
+            if (enviarWs) {
+              window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeWs)}`, '_blank');
+            }
           }
 
-          alert("Solicitud enviada. El equipo quedó en 'Esperando Confirmación'.");
+          alert("Solicitud guardada. El equipo quedó en 'Esperando Confirmación'.");
           cargarPanelTaller();
         } catch (e) {
           console.error(e);
@@ -997,6 +1006,15 @@
               historialEventos: historialActualizado
             });
 
+            let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU*. Te confirmamos que usted aceptó el nuevo diagnóstico/presupuesto de su ${ord.tipoEquipo} (Orden N° *${nroOrden}*). Queda registrado en el sistema y el equipo continúa en reparación con *${ord.tecnico}*.\n\nPodés seguir el estado desde: ${configApp.linkApp}`;
+
+            if (ord.celular) {
+              const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar un WhatsApp al cliente confirmando que aceptó el diagnóstico?");
+              if (enviarWs) {
+                window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeWs)}`, '_blank');
+              }
+            }
+
             alert(`Presupuesto aceptado. La orden volvió a los pendientes de ${ord.tecnico}.`);
             cargarPanelTaller();
           } catch (e) {
@@ -1022,7 +1040,7 @@
         };
         const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-        if (confirm(`¿Pasar a 'Listos / Reparados' y enviar notificación de retiro por WhatsApp al cliente?`)) {
+        if (confirm(`¿Guardar el rechazo y pasar el equipo a listos para retirar?`)) {
           try {
             const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
             await window.updateDoc(docRef, {
@@ -1065,10 +1083,13 @@
             mensajeWs += `\n\n📍 Ya podés pasar a retirarlo armado por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
 
             if (ord.celular) {
-              window.open(`https://wa.me/549${ord.celular}?text=${encodeURIComponent(mensajeWs)}`, '_blank');
+              const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar el aviso de presupuesto rechazado por WhatsApp al cliente?");
+              if (enviarWs) {
+                window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeWs)}`, '_blank');
+              }
             }
 
-            alert("Orden registrada como rechazada. Se envió el aviso por WhatsApp y pasó a 'Listos / Reparados'.");
+            alert("Orden registrada como rechazada y pasada a 'Listos / Reparados'.");
             cargarPanelTaller();
           } catch (e) {
             console.error(e);
@@ -1104,7 +1125,7 @@
       };
       const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-      if (confirm(`¿Confirmar "Sin Reparación / Sin Solución" con revisión de $${costoRevision.toLocaleString("es-AR")}?`)) {
+      if (confirm(`¿Guardar el estado "Sin Reparación / Sin Solución" en el sistema?`)) {
         try {
           const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
           await window.updateDoc(docRef, {
@@ -1148,7 +1169,10 @@
           mensajeWs += `\n\n📍 Podés pasar a retirar tu equipo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
 
           if (ord.celular) {
-            window.open(`https://wa.me/549${ord.celular}?text=${encodeURIComponent(mensajeWs)}`, '_blank');
+            const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar el aviso por WhatsApp al cliente?");
+            if (enviarWs) {
+              window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeWs)}`, '_blank');
+            }
           }
 
           alert("Registrado como Sin Reparación correctamente. Pasó a 'Listos / Reparados'.");
@@ -1185,27 +1209,32 @@
       };
       const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-      try {
-        const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
-        await window.updateDoc(docRef, {
-          estado: "Retirado / Entregado",
-          saldo: 0,
-          montoCobradoAlRetirar: montoRetiro,
-          fechaRetiro: fechaHoraRetiro,
-          fechaModificacion: fechaHoraRetiro,
-          historialEventos: historialActualizado
-        });
+      if (confirm(`¿Registrar la entrega de la orden N° ${nroOrden} en el sistema?`)) {
+        try {
+          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+          await window.updateDoc(docRef, {
+            estado: "Retirado / Entregado",
+            saldo: 0,
+            montoCobradoAlRetirar: montoRetiro,
+            fechaRetiro: fechaHoraRetiro,
+            fechaModificacion: fechaHoraRetiro,
+            historialEventos: historialActualizado
+          });
 
-        const mensajeFinal = `¡Hola ${ord.nombre}! Te confirmamos que retiraste tu equipo de MAXICOMPU el día ${fechaHoraRetiro}. ¡Muchas gracias por confiar en nosotros!`;
-        if (ord.celular) {
-          window.open(`https://wa.me/549${ord.celular}?text=${encodeURIComponent(mensajeFinal)}`, '_blank');
+          const mensajeFinal = `¡Hola ${ord.nombre}! Te confirmamos que retiraste tu equipo de MAXICOMPU el día ${fechaHoraRetiro}. ¡Muchas gracias por confiar en nosotros!`;
+          if (ord.celular) {
+            const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar la confirmación de retiro por WhatsApp al cliente?");
+            if (enviarWs) {
+              window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeFinal)}`, '_blank');
+            }
+          }
+
+          alert("Equipo entregado y registrado en la caja de " + ord.tecnico);
+          cargarPanelTaller();
+        } catch (e) {
+          console.error(e);
+          alert("Error al registrar la entrega.");
         }
-
-        alert("Equipo entregado y registrado en la caja de " + ord.tecnico);
-        cargarPanelTaller();
-      } catch (e) {
-        console.error(e);
-        alert("Error al registrar la entrega.");
       }
     }
 
