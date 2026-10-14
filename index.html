@@ -40,8 +40,20 @@
   </script>
 </head>
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
-  <div class="max-w-xl mx-auto bg-white min-h-screen shadow-lg flex flex-col justify-between">
+  <div class="max-w-xl mx-auto bg-white min-h-screen shadow-lg flex flex-col justify-between relative">
     
+    <!-- Modal Personalizado para Opciones de WhatsApp -->
+    <div id="custom-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl space-y-4 text-center">
+        <h3 id="modal-titulo" class="font-bold text-base text-blue-900">¿Cómo deseas proceder?</h3>
+        <p id="modal-texto" class="text-xs text-gray-600">Elegí una opción para continuar con el movimiento:</p>
+        <div class="space-y-2 pt-2">
+          <button id="btn-modal-enviar" class="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-bold text-xs shadow transition">📲 Guardar y Enviar WhatsApp</button>
+          <button id="btn-modal-solo" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold text-xs shadow transition">📁 Solo Guardar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Header con Logo -->
     <header class="bg-blue-700 text-white p-3 text-center font-bold text-xl shadow flex justify-between items-center">
       <div onclick="mostrarVista('login-view')" class="flex items-center gap-2 cursor-pointer">
@@ -269,6 +281,33 @@
 
     let listaOrdenesCache = [];
     let filtroActualAdmin = "TODOS";
+
+    function mostrarModalWhatsApp(celular, mensaje, callbackExito) {
+      const modal = document.getElementById("custom-modal");
+      const btnEnviar = document.getElementById("btn-modal-enviar");
+      const btnSolo = document.getElementById("btn-modal-solo");
+
+      modal.classList.remove("hidden");
+
+      // Limpiar eventos anteriores clonando los botones
+      const nuevoBtnEnviar = btnEnviar.cloneNode(true);
+      const nuevoBtnSolo = btnSolo.cloneNode(true);
+      btnEnviar.parentNode.replaceChild(nuevoBtnEnviar, btnEnviar);
+      btnSolo.parentNode.replaceChild(nuevoBtnSolo, btnSolo);
+
+      nuevoBtnEnviar.addEventListener("click", () => {
+        modal.classList.add("hidden");
+        if (celular) {
+          window.open(`https://web.whatsapp.com/send?phone=549${celular}&text=${encodeURIComponent(mensaje)}`, '_blank');
+        }
+        if (callbackExito) callbackExito();
+      });
+
+      nuevoBtnSolo.addEventListener("click", () => {
+        modal.classList.add("hidden");
+        if (callbackExito) callbackExito();
+      });
+    }
 
     function obtenerFechaHoraActual() {
       const ahora = new Date();
@@ -514,15 +553,16 @@
         const textoWs = `Hola ${nombre}! Recibimos tu ${tipoEquipo} (${modelo}) en MAXICOMPU el ${fechaIngreso}. Orden N°: *${nroOrden}*. Falla: ${falla}. ${detallePrecioWs} Podés consultar el estado ingresando tu celular y orden en: ${configApp.linkApp}`;
         
         if (celular) {
-          const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar el mensaje por WhatsApp al cliente?");
-          if (enviarWs) {
-            window.open(`https://web.whatsapp.com/send?phone=549${celular}&text=${encodeURIComponent(textoWs)}`, '_blank');
-          }
+          mostrarModalWhatsApp(celular, textoWs, () => {
+            alert(`¡Orden N° ${nroOrden} registrada correctamente!`);
+            limpiarFormularioOrden();
+            cargarPanelTaller();
+          });
+        } else {
+          alert(`¡Orden N° ${nroOrden} registrada correctamente!`);
+          limpiarFormularioOrden();
+          cargarPanelTaller();
         }
-
-        alert(`¡Orden N° ${nroOrden} registrada correctamente!`);
-        limpiarFormularioOrden();
-        cargarPanelTaller();
       } catch (e) {
         console.error("Error al guardar la orden:", e);
         alert("Error al conectar con la base de datos.");
@@ -836,45 +876,43 @@
       };
       const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-      if (confirm(`¿Marcar la orden como REPARADA en el sistema?`)) {
-        try {
-          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
-          await window.updateDoc(docRef, {
-            estado: nuevoEstado,
-            trabajoRealizado: trabajoInput.trim(),
-            fechaModificacion: fechaHoraActual,
-            historialEventos: historialActualizado
+      try {
+        const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+        await window.updateDoc(docRef, {
+          estado: nuevoEstado,
+          trabajoRealizado: trabajoInput.trim(),
+          fechaModificacion: fechaHoraActual,
+          historialEventos: historialActualizado
+        });
+
+        let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
+        mensajeWs += `📌 *Estado Actual:* ✅ ¡Tu equipo ya está REPARADO y listo para retirar!\n`;
+        mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
+        
+        if (trabajoInput.trim()) {
+          mensajeWs += `🔍 *Trabajo Realizado:* ${trabajoInput.trim()}\n`;
+        }
+
+        if (presAnterior > 0) {
+          mensajeWs += `\n💵 *Presupuesto Total:* $${presAnterior.toLocaleString("es-AR")}`;
+          if (seniaActual > 0) mensajeWs += ` | *Seña:* $${seniaActual.toLocaleString("es-AR")}`;
+          mensajeWs += `\n👉 *SALDO A ABONAR AL RETIRAR:* *$${nuevoSaldo.toLocaleString("es-AR")}*`;
+        }
+
+        mensajeWs += `\n\n📍 Podés pasar a retirarlo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
+
+        if (ord.celular) {
+          mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
+            alert("Equipo reparado con éxito. Pasó a la solapa 'Listos / Reparados'.");
+            cargarPanelTaller();
           });
-
-          let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
-          mensajeWs += `📌 *Estado Actual:* ✅ ¡Tu equipo ya está REPARADO y listo para retirar!\n`;
-          mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
-          
-          if (trabajoInput.trim()) {
-            mensajeWs += `🔍 *Trabajo Realizado:* ${trabajoInput.trim()}\n`;
-          }
-
-          if (presAnterior > 0) {
-            mensajeWs += `\n💵 *Presupuesto Total:* $${presAnterior.toLocaleString("es-AR")}`;
-            if (seniaActual > 0) mensajeWs += ` | *Seña:* $${seniaActual.toLocaleString("es-AR")}`;
-            mensajeWs += `\n👉 *SALDO A ABONAR AL RETIRAR:* *$${nuevoSaldo.toLocaleString("es-AR")}*`;
-          }
-
-          mensajeWs += `\n\n📍 Podés pasar a retirarlo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
-
-          if (ord.celular) {
-            const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar el aviso por WhatsApp al cliente?");
-            if (enviarWs) {
-              window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeWs)}`, '_blank');
-            }
-          }
-
+        } else {
           alert("Equipo reparado con éxito. Pasó a la solapa 'Listos / Reparados'.");
           cargarPanelTaller();
-        } catch (e) {
-          console.error(e);
-          alert("Error al actualizar el estado.");
         }
+      } catch (e) {
+        console.error(e);
+        alert("Error al actualizar el estado.");
       }
     }
 
@@ -937,50 +975,48 @@
 
       const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-      if (confirm(`¿Guardar el nuevo presupuesto en el sistema?`)) {
-        try {
-          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
-          await window.updateDoc(docRef, {
-            estado: nuevoEstado,
-            trabajoRealizado: trabajoInput.trim(),
-            presupuestoBase: presBase,
-            presupuestoAdicional: adicionalCobrar,
-            presupuesto: nuevoPresupuestoTotal,
-            saldo: nuevoSaldo,
-            fechaModificacion: fechaHoraActual,
-            historialEventos: historialActualizado
+      try {
+        const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+        await window.updateDoc(docRef, {
+          estado: nuevoEstado,
+          trabajoRealizado: trabajoInput.trim(),
+          presupuestoBase: presBase,
+          presupuestoAdicional: adicionalCobrar,
+          presupuesto: nuevoPresupuestoTotal,
+          saldo: nuevoSaldo,
+          fechaModificacion: fechaHoraActual,
+          historialEventos: historialActualizado
+        });
+
+        let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
+        mensajeWs += `📌 *Estado Actual:* Esperando tu confirmación de presupuesto.\n`;
+        mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
+        
+        if (trabajoInput.trim()) {
+          mensajeWs += `🔍 *Explicación Técnica:* ${trabajoInput.trim()}\n`;
+        }
+
+        mensajeWs += `\n💵 *Resumen de Presupuesto:*`;
+        if (presBase > 0) mensajeWs += `\n• Presupuesto inicial base: $${presBase.toLocaleString("es-AR")}`;
+        if (adicionalCobrar > 0) mensajeWs += `\n• Adicional repuesto/trabajo: $${adicionalCobrar.toLocaleString("es-AR")}`;
+        mensajeWs += `\n• *NUEVO PRESUPUESTO TOTAL:* $${nuevoPresupuestoTotal.toLocaleString("es-AR")}`;
+        
+        if (seniaActual > 0) mensajeWs += `\n• Seña entregada previamente: -$${seniaActual.toLocaleString("es-AR")}`;
+        mensajeWs += `\n👉 *NUEVO SALDO A ABONAR:* *$${nuevoSaldo.toLocaleString("es-AR")}*`;
+        mensajeWs += `\n\nPor favor respondé a este mensaje confirmando si *ACEPTÁS* para comenzar con el trabajo. Podés seguir el estado desde: ${configApp.linkApp}`;
+
+        if (ord.celular) {
+          mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
+            alert("Solicitud guardada. El equipo quedó en 'Esperando Confirmación'.");
+            cargarPanelTaller();
           });
-
-          let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
-          mensajeWs += `📌 *Estado Actual:* Esperando tu confirmación de presupuesto.\n`;
-          mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
-          
-          if (trabajoInput.trim()) {
-            mensajeWs += `🔍 *Explicación Técnica:* ${trabajoInput.trim()}\n`;
-          }
-
-          mensajeWs += `\n💵 *Resumen de Presupuesto:*`;
-          if (presBase > 0) mensajeWs += `\n• Presupuesto inicial base: $${presBase.toLocaleString("es-AR")}`;
-          if (adicionalCobrar > 0) mensajeWs += `\n• Adicional repuesto/trabajo: $${adicionalCobrar.toLocaleString("es-AR")}`;
-          mensajeWs += `\n• *NUEVO PRESUPUESTO TOTAL:* $${nuevoPresupuestoTotal.toLocaleString("es-AR")}`;
-          
-          if (seniaActual > 0) mensajeWs += `\n• Seña entregada previamente: -$${seniaActual.toLocaleString("es-AR")}`;
-          mensajeWs += `\n👉 *NUEVO SALDO A ABONAR:* *$${nuevoSaldo.toLocaleString("es-AR")}*`;
-          mensajeWs += `\n\nPor favor respondé a este mensaje confirmando si *ACEPTÁS* para comenzar con el trabajo. Podés seguir el estado desde: ${configApp.linkApp}`;
-
-          if (ord.celular) {
-            const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar la solicitud de nuevo presupuesto por WhatsApp al cliente?");
-            if (enviarWs) {
-              window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeWs)}`, '_blank');
-            }
-          }
-
+        } else {
           alert("Solicitud guardada. El equipo quedó en 'Esperando Confirmación'.");
           cargarPanelTaller();
-        } catch (e) {
-          console.error(e);
-          alert("Error al actualizar estado.");
         }
+      } catch (e) {
+        console.error(e);
+        alert("Error al actualizar estado.");
       }
     }
 
@@ -991,36 +1027,34 @@
       const fechaHoraActual = obtenerFechaHoraActual();
 
       if (acepto) {
-        if (confirm(`El cliente ACEPTÓ el presupuesto. El equipo volverá a los pendientes de ${ord.tecnico}.`)) {
-          const nuevoEvento = {
-            fecha: fechaHoraActual,
-            detalle: `El cliente ACEPTÓ el nuevo presupuesto (Total: $${(ord.presupuesto || 0).toLocaleString("es-AR")}). Vuelve a reparación.`
-          };
-          const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+        const nuevoEvento = {
+          fecha: fechaHoraActual,
+          detalle: `El cliente ACEPTÓ el nuevo presupuesto (Total: $${(ord.presupuesto || 0).toLocaleString("es-AR")}). Vuelve a reparación.`
+        };
+        const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-          try {
-            const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
-            await window.updateDoc(docRef, {
-              estado: "Presupuesto Aceptado / En Reparación",
-              fechaModificacion: fechaHoraActual,
-              historialEventos: historialActualizado
+        try {
+          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+          await window.updateDoc(docRef, {
+            estado: "Presupuesto Aceptado / En Reparación",
+            fechaModificacion: fechaHoraActual,
+            historialEventos: historialActualizado
+          });
+
+          let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU*. Te confirmamos que usted aceptó el nuevo diagnóstico/presupuesto de su ${ord.tipoEquipo} (Orden N° *${nroOrden}*). Queda registrado en el sistema y el equipo continúa en reparación con *${ord.tecnico}*.\n\nPodés seguir el estado desde: ${configApp.linkApp}`;
+
+          if (ord.celular) {
+            mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
+              alert(`Presupuesto aceptado. La orden volvió a los pendientes de ${ord.tecnico}.`);
+              cargarPanelTaller();
             });
-
-            let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU*. Te confirmamos que usted aceptó el nuevo diagnóstico/presupuesto de su ${ord.tipoEquipo} (Orden N° *${nroOrden}*). Queda registrado en el sistema y el equipo continúa en reparación con *${ord.tecnico}*.\n\nPodés seguir el estado desde: ${configApp.linkApp}`;
-
-            if (ord.celular) {
-              const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar un WhatsApp al cliente confirmando que aceptó el diagnóstico?");
-              if (enviarWs) {
-                window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeWs)}`, '_blank');
-              }
-            }
-
+          } else {
             alert(`Presupuesto aceptado. La orden volvió a los pendientes de ${ord.tecnico}.`);
             cargarPanelTaller();
-          } catch (e) {
-            console.error(e);
-            alert("Error al guardar respuesta.");
           }
+        } catch (e) {
+          console.error(e);
+          alert("Error al guardar respuesta.");
         }
       } else {
         const revInput = prompt(`El cliente RECHAZÓ el presupuesto. Ingresá el costo del servicio técnico por REVISIÓN/DIAGNÓSTICO (si no se cobra nada, ingresá 0):`, "0");
@@ -1036,65 +1070,64 @@
 
         const nuevoEvento = {
           fecha: fechaHoraActual,
-          detalle: `El cliente RECHAZÓ el nuevo presupuesto. Pasó a Sin Reparación / Presupuesto Rechazado (Costo revisión: $${costoRevision.toLocaleString("es-AR")}).`
+          detalle: `El cliente RECHAZÓ el nuevo presupuesto. Pasó a Sin Reparación / Presupuesto Rechazado (Costo revisión: $${costoRevision.toLocaleString("es-AR"
+          )}).`
         };
         const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-        if (confirm(`¿Guardar el rechazo y pasar el equipo a listos para retirar?`)) {
-          try {
-            const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
-            await window.updateDoc(docRef, {
-              estado: "Sin Reparación / Presupuesto Rechazado",
-              presupuesto: 0,
-              costoRevision: costoRevision,
-              saldo: saldoAbonar,
-              fechaModificacion: fechaHoraActual,
-              historialEventos: historialActualizado
-            });
+        try {
+          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+          await window.updateDoc(docRef, {
+            estado: "Sin Reparación / Presupuesto Rechazado",
+            presupuesto: 0,
+            costoRevision: costoRevision,
+            saldo: saldoAbonar,
+            fechaModificacion: fechaHoraActual,
+            historialEventos: historialActualizado
+          });
 
-            let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
-            mensajeWs += `📌 *Estado Actual:* Presupuesto Rechazado - Equipo listo para retirar rearmado.\n`;
-            mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
-            
-            if (ord.trabajoRealizado) {
-              mensajeWs += `🔍 *Detalle / Informe Técnico:* ${ord.trabajoRealizado}\n`;
-            }
+          let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
+          mensajeWs += `📌 *Estado Actual:* Presupuesto Rechazado - Equipo listo para retirar rearmado.\n`;
+          mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
+          
+          if (ord.trabajoRealizado) {
+            mensajeWs += `🔍 *Detalle / Informe Técnico:* ${ord.trabajoRealizado}\n`;
+          }
 
-            mensajeWs += `\n💵 *Resumen de Cuenta:*`;
-            mensajeWs += `\n• Servicio Técnico por Revisión: $${costoRevision.toLocaleString("es-AR")}`;
+          mensajeWs += `\n💵 *Resumen de Cuenta:*`;
+          mensajeWs += `\n• Servicio Técnico por Revisión: $${costoRevision.toLocaleString("es-AR")}`;
 
-            if (seniaActual > 0) {
-              mensajeWs += `\n• Seña entregada inicialmente: $${seniaActual.toLocaleString("es-AR")}`;
-              if (devolucion > 0) {
-                mensajeWs += `\n👉 *REINTEGRO A FAVOR DEL CLIENTE:* Se te devolverán *$${devolucion.toLocaleString("es-AR")}* de la seña al retirar el equipo.`;
-              } else if (saldoAbonar > 0) {
-                mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR:* *$${saldoAbonar.toLocaleString("es-AR")}*.`;
-              } else {
-                mensajeWs += `\n👉 *SALDO PENDIENTE:* $0 (La seña cubrió el costo de revisión).`;
-              }
+          if (seniaActual > 0) {
+            mensajeWs += `\n• Seña entregada inicialmente: $${seniaActual.toLocaleString("es-AR")}`;
+            if (devolucion > 0) {
+              mensajeWs += `\n👉 *REINTEGRO A FAVOR DEL CLIENTE:* Se te devolverán *$${devolucion.toLocaleString("es-AR")}* de la seña al retirar el equipo.`;
+            } else if (saldoAbonar > 0) {
+              mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR:* *$${saldoAbonar.toLocaleString("es-AR")}*.`;
             } else {
-              if (costoRevision > 0) {
-                mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR:* *$${costoRevision.toLocaleString("es-AR")}*.`;
-              } else {
-                mensajeWs += `\n👉 *SALDO PENDIENTE:* $0 (Sin costo de revisión).`;
-              }
+              mensajeWs += `\n👉 *SALDO PENDIENTE:* $0 (La seña cubrió el costo de revisión).`;
             }
-
-            mensajeWs += `\n\n📍 Ya podés pasar a retirarlo armado por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
-
-            if (ord.celular) {
-              const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar el aviso de presupuesto rechazado por WhatsApp al cliente?");
-              if (enviarWs) {
-                window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeWs)}`, '_blank');
-              }
+          } else {
+            if (costoRevision > 0) {
+              mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR:* *$${costoRevision.toLocaleString("es-AR")}*.`;
+            } else {
+              mensajeWs += `\n👉 *SALDO PENDIENTE:* $0 (Sin costo de revisión).`;
             }
+          }
 
+          mensajeWs += `\n\n📍 Ya podés pasar a retirarlo armado por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
+
+          if (ord.celular) {
+            mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
+              alert("Orden registrada como rechazada y pasada a 'Listos / Reparados'.");
+              cargarPanelTaller();
+            });
+          } else {
             alert("Orden registrada como rechazada y pasada a 'Listos / Reparados'.");
             cargarPanelTaller();
-          } catch (e) {
-            console.error(e);
-            alert("Error al rechazar presupuesto.");
           }
+        } catch (e) {
+          console.error(e);
+          alert("Error al rechazar presupuesto.");
         }
       }
     }
@@ -1125,62 +1158,60 @@
       };
       const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-      if (confirm(`¿Guardar el estado "Sin Reparación / Sin Solución" en el sistema?`)) {
-        try {
-          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
-          await window.updateDoc(docRef, {
-            estado: "Sin Reparación / Presupuesto Rechazado",
-            trabajoRealizado: motivoInput.trim(),
-            presupuesto: 0,
-            costoRevision: costoRevision,
-            saldo: saldoAbonar,
-            fechaModificacion: fechaHoraActual,
-            historialEventos: historialActualizado
-          });
+      try {
+        const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+        await window.updateDoc(docRef, {
+          estado: "Sin Reparación / Presupuesto Rechazado",
+          trabajoRealizado: motivoInput.trim(),
+          presupuesto: 0,
+          costoRevision: costoRevision,
+          saldo: saldoAbonar,
+          fechaModificacion: fechaHoraActual,
+          historialEventos: historialActualizado
+        });
 
-          let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
-          mensajeWs += `📌 *Estado Actual:* Sin Reparación / Sin Solución\n`;
-          mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
-          
-          if (motivoInput.trim()) {
-            mensajeWs += `🔍 *Informe Técnico:* ${motivoInput.trim()}\n`;
-          }
+        let mensajeWs = `Hola ${ord.nombre}! Te escribimos de *MAXICOMPU* respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
+        mensajeWs += `📌 *Estado Actual:* Sin Reparación / Sin Solución\n`;
+        mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
+        
+        if (motivoInput.trim()) {
+          mensajeWs += `🔍 *Informe Técnico:* ${motivoInput.trim()}\n`;
+        }
 
-          mensajeWs += `\n💵 *Resumen de Revisión:*`;
-          mensajeWs += `\n• Costo por Servicio Técnico de Revisión: $${costoRevision.toLocaleString("es-AR")}`;
-          
-          if (seniaActual > 0) {
-            mensajeWs += `\n• Seña entregada inicialmente: $${seniaActual.toLocaleString("es-AR")}`;
-            if (devolucion > 0) {
-              mensajeWs += `\n👉 *REINTEGRO A FAVOR DEL CLIENTE:* Se le devolverán *$${devolucion.toLocaleString("es-AR")}* de seña al momento de retirar el equipo.`;
-            } else if (saldoAbonar > 0) {
-              mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR POR REVISIÓN:* *$${saldoAbonar.toLocaleString("es-AR")}*.`;
-            } else {
-              mensajeWs += `\n👉 *SALDO:* $0 (La seña cubrió exactamente la revisión técnica).`;
-            }
+        mensajeWs += `\n💵 *Resumen de Revisión:*`;
+        mensajeWs += `\n• Costo por Servicio Técnico de Revisión: $${costoRevision.toLocaleString("es-AR")}`;
+        
+        if (seniaActual > 0) {
+          mensajeWs += `\n• Seña entregada inicialmente: $${seniaActual.toLocaleString("es-AR")}`;
+          if (devolucion > 0) {
+            mensajeWs += `\n👉 *REINTEGRO A FAVOR DEL CLIENTE:* Se le devolverán *$${devolucion.toLocaleString("es-AR")}* de seña al momento de retirar el equipo.`;
+          } else if (saldoAbonar > 0) {
+            mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR POR REVISIÓN:* *$${saldoAbonar.toLocaleString("es-AR")}*.`;
           } else {
-            if (costoRevision > 0) {
-              mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR:* *$${costoRevision.toLocaleString("es-AR")}*.`;
-            } else {
-              mensajeWs += `\n👉 *SALDO:* $0 (Sin costo de revisión).`;
-            }
+            mensajeWs += `\n👉 *SALDO:* $0 (La seña cubrió exactamente la revisión técnica).`;
           }
-
-          mensajeWs += `\n\n📍 Podés pasar a retirar tu equipo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
-
-          if (ord.celular) {
-            const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar el aviso por WhatsApp al cliente?");
-            if (enviarWs) {
-              window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeWs)}`, '_blank');
-            }
+        } else {
+          if (costoRevision > 0) {
+            mensajeWs += `\n👉 *SALDO PENDIENTE A ABONAR:* *$${costoRevision.toLocaleString("es-AR")}*.`;
+          } else {
+            mensajeWs += `\n👉 *SALDO:* $0 (Sin costo de revisión).`;
           }
+        }
 
+        mensajeWs += `\n\n📍 Podés pasar a retirar tu equipo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
+
+        if (ord.celular) {
+          mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
+            alert("Registrado como Sin Reparación correctamente. Pasó a 'Listos / Reparados'.");
+            cargarPanelTaller();
+          });
+        } else {
           alert("Registrado como Sin Reparación correctamente. Pasó a 'Listos / Reparados'.");
           cargarPanelTaller();
-        } catch (e) {
-          console.error(e);
-          alert("Error al actualizar el estado.");
         }
+      } catch (e) {
+        console.error(e);
+        alert("Error al actualizar el estado.");
       }
     }
 
@@ -1209,32 +1240,30 @@
       };
       const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
-      if (confirm(`¿Registrar la entrega de la orden N° ${nroOrden} en el sistema?`)) {
-        try {
-          const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
-          await window.updateDoc(docRef, {
-            estado: "Retirado / Entregado",
-            saldo: 0,
-            montoCobradoAlRetirar: montoRetiro,
-            fechaRetiro: fechaHoraRetiro,
-            fechaModificacion: fechaHoraRetiro,
-            historialEventos: historialActualizado
+      try {
+        const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+        await window.updateDoc(docRef, {
+          estado: "Retirado / Entregado",
+          saldo: 0,
+          montoCobradoAlRetirar: montoRetiro,
+          fechaRetiro: fechaHoraRetiro,
+          fechaModificacion: fechaHoraRetiro,
+          historialEventos: historialActualizado
+        });
+
+        const mensajeFinal = `¡Hola ${ord.nombre}! Te confirmamos que retiraste tu equipo de MAXICOMPU el día ${fechaHoraRetiro}. ¡Muchas gracias por confiar en nosotros!`;
+        if (ord.celular) {
+          mostrarModalWhatsApp(ord.celular, mensajeFinal, () => {
+            alert("Equipo entregado y registrado en la caja de " + ord.tecnico);
+            cargarPanelTaller();
           });
-
-          const mensajeFinal = `¡Hola ${ord.nombre}! Te confirmamos que retiraste tu equipo de MAXICOMPU el día ${fechaHoraRetiro}. ¡Muchas gracias por confiar en nosotros!`;
-          if (ord.celular) {
-            const enviarWs = confirm("¿Desea GUARDAR el movimiento y ADEMÁS enviar la confirmación de retiro por WhatsApp al cliente?");
-            if (enviarWs) {
-              window.open(`https://web.whatsapp.com/send?phone=549${ord.celular}&text=${encodeURIComponent(mensajeFinal)}`, '_blank');
-            }
-          }
-
+        } else {
           alert("Equipo entregado y registrado en la caja de " + ord.tecnico);
           cargarPanelTaller();
-        } catch (e) {
-          console.error(e);
-          alert("Error al registrar la entrega.");
         }
+      } catch (e) {
+        console.error(e);
+        alert("Error al registrar la entrega.");
       }
     }
 
