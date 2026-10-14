@@ -282,6 +282,7 @@
     let listaOrdenesCache = [];
     let filtroActualAdmin = "TODOS";
 
+    // Función compatible universalmente con teléfonos y computadoras
     function mostrarModalWhatsApp(celular, mensaje, callbackFin) {
       if (!celular) {
         if (callbackFin) callbackFin();
@@ -301,7 +302,11 @@
 
       nuevoBtnEnviar.addEventListener("click", () => {
         modal.classList.add("hidden");
-        window.open(`https://web.whatsapp.com/send?phone=549${celular}&text=${encodeURIComponent(mensaje)}`, '_blank');
+        
+        // Detección universal: usa api.whatsapp.com para redirigir a App Móvil o a Web automáticamente
+        const urlWhatsApp = `https://api.whatsapp.com/send?phone=549${celular}&text=${encodeURIComponent(mensaje)}`;
+        window.open(urlWhatsApp, '_blank');
+        
         if (callbackFin) callbackFin();
       });
 
@@ -552,7 +557,6 @@
           detallePrecioWs = `A la espera de evaluación técnica del equipo para definir presupuesto.`;
         }
 
-        // Opción 1: Enfoque tecnológico y transparente (IA / Asistente Virtual)
         let textoWs = `¡Hola ${nombre}! 👋 Te saluda el asistente virtual automatizado de MAXICOMPU para confirmarte que recibimos tu ${tipoEquipo} (${modelo}) el ${fechaIngreso}. Orden N°: *${nroOrden}*. Falla reportada: ${falla}. ${detallePrecioWs} Podés consultar el estado ingresando tu celular y orden en: ${configApp.linkApp}`;
         
         limpiarFormularioOrden();
@@ -877,7 +881,6 @@
           historialEventos: historialActualizado
         });
 
-        // Opción 1: Enfoque tecnológico y transparente (IA / Asistente Virtual)
         let mensajeWs = `¡Hola ${ord.nombre}! 👋 Te saluda el asistente virtual automatizado de MAXICOMPU respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
         mensajeWs += `📌 *Estado Actual:* ✅ ¡Tu equipo ya está REPARADO y listo para retirar!\n`;
         mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
@@ -971,7 +974,6 @@
           historialEventos: historialActualizado
         });
 
-        // Opción 1: Enfoque tecnológico y transparente (IA / Asistente Virtual)
         let mensajeWs = `¡Hola ${ord.nombre}! 👋 Te saluda el asistente virtual automatizado de MAXICOMPU respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
         mensajeWs += `📌 *Estado Actual:* Esperando tu confirmación de presupuesto.\n`;
         mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
@@ -1020,7 +1022,6 @@
             historialEventos: historialActualizado
           });
 
-          // Opción 1: Enfoque tecnológico y transparente (IA / Asistente Virtual)
           let mensajeWs = `¡Hola ${ord.nombre}! 👋 Te saluda el asistente virtual automatizado de MAXICOMPU. Te confirmamos que usted aceptó el nuevo diagnóstico/presupuesto de su ${ord.tipoEquipo} (Orden N° *${nroOrden}*). Queda registrado en el sistema y el equipo continúa en reparación con *${ord.tecnico}*.\n\nPodés seguir el estado desde: ${configApp.linkApp}`;
 
           mostrarModalWhatsApp(ord.celular, mensajeWs, () => {
@@ -1059,7 +1060,6 @@
             historialEventos: historialActualizado
           });
 
-          // Opción 1: Enfoque tecnológico y transparente (IA / Asistente Virtual)
           let mensajeWs = `¡Hola ${ord.nombre}! 👋 Te saluda el asistente virtual automatizado de MAXICOMPU respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
           mensajeWs += `📌 *Estado Actual:* Presupuesto Rechazado - Equipo listo para retirar rearmado.\n`;
           mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
@@ -1138,7 +1138,6 @@
           historialEventos: historialActualizado
         });
 
-        // Opción 1: Enfoque tecnológico y transparente (IA / Asistente Virtual)
         let mensajeWs = `¡Hola ${ord.nombre}! 👋 Te saluda el asistente virtual automatizado de MAXICOMPU respecto a tu ${ord.tipoEquipo} (Orden N° *${nroOrden}*).\n\n`;
         mensajeWs += `📌 *Estado Actual:* Sin Reparación / Sin Solución\n`;
         mensajeWs += `🕒 *Fecha/Hora:* ${fechaHoraActual}\n`;
@@ -1214,7 +1213,6 @@
           historialEventos: historialActualizado
         });
 
-        // Opción 1: Enfoque tecnológico y transparente (IA / Asistente Virtual)
         const mensajeFinal = `¡Hola ${ord.nombre}! 👋 Te saluda el asistente virtual automatizado de MAXICOMPU. Te confirmamos que retiraste tu equipo el día ${fechaHoraRetiro}. ¡Muchas gracias por confiar en nosotros!`;
         mostrarModalWhatsApp(ord.celular, mensajeFinal, () => {
           cargarPanelTaller();
