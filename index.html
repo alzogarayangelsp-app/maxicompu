@@ -42,14 +42,14 @@
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
   <div class="max-w-xl mx-auto bg-white min-h-screen shadow-lg flex flex-col justify-between relative">
     
-    <!-- Ventana flotante clara para elegir WhatsApp o solo guardar -->
+    <!-- Modal Personalizado para Opciones de WhatsApp (Único control de acción) -->
     <div id="custom-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl space-y-4 text-center">
-        <h3 class="font-bold text-base text-blue-900">¿Deseas enviar el WhatsApp al cliente?</h3>
-        <p class="text-xs text-gray-600">El movimiento ya fue guardado en el sistema.</p>
+        <h3 id="modal-titulo" class="font-bold text-base text-blue-900">¿Cómo deseas proceder?</h3>
+        <p id="modal-texto" class="text-xs text-gray-600">Elegí una opción para registrar el movimiento:</p>
         <div class="space-y-2 pt-2">
           <button id="btn-modal-enviar" class="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-bold text-xs shadow transition">📲 Guardar y Enviar WhatsApp</button>
-          <button id="btn-modal-solo" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold text-xs shadow transition">📁 Solo Guardar (Cerrar)</button>
+          <button id="btn-modal-solo" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold text-xs shadow transition">📁 Solo Guardar</button>
         </div>
       </div>
     </div>
@@ -1229,7 +1229,6 @@
 
       try {
         await window.setDoc(window.doc(window.db, "configuracion_maxicompu", "general"), configApp);
-        alert("Configuración guardada con éxito.");
         cargarPanelTaller();
       } catch (e) {
         console.error(e);
