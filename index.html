@@ -313,7 +313,7 @@
     }
 
     function obtenerFechaHoraActual() {
-      const ahora = new Date();
+      constahora = new Date();
       return ahora.toLocaleDateString("es-AR") + " - " + ahora.toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' }) + " hs";
     }
 
@@ -742,7 +742,6 @@
             </div>
           `;
         } else if (esSolapaTodos) {
-          // Solapa TODOS: solo muestra historial y estado, sin botones de acción (excepto si ya está retirado)
           let htmlBotonGarantiaTodos = "";
           if (esRetirado) {
             htmlBotonGarantiaTodos = `
@@ -859,23 +858,31 @@
       const trabajoInput = prompt(`Diagnóstico o trabajo técnico realizado (Reparado):`, ord.trabajoRealizado || "");
       if (trabajoInput === null) return;
 
-      const presAnterior = ord.presupuesto || 0;
+      let presupuestoActual = ord.presupuestoBase || ord.presupuesto || 0;
+
+      // Si no tenía costo inicial o es 0, pedimos el costo directamente
+      if (presupuestoActual <= 0) {
+        const costoInput = prompt(`Ingresá el COSTO TOTAL de la reparación ($):`, "0");
+        if (costoInput === null || isNaN(parseFloat(costoInput))) return;
+        presupuestoActual = parseFloat(costoInput);
+      }
+
       const seniaActual = ord.senia || 0;
-      const nuevoSaldo = presAnterior - seniaActual;
+      const nuevoSaldo = presupuestoActual - seniaActual;
       const fechaHoraActual = obtenerFechaHoraActual();
       const nuevoEstado = "Reparado / Listo para Retirar";
 
-      const nuevoEvento = {
-        fecha: fechaHoraActual,
-        detalle: `Equipo Reparado por ${ord.tecnico}. Trabajo: ${trabajoInput.trim()}. Pasó a Listos para Retirar.`
-      };
-      const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+      const nuevoventoDetalle = `Equipo Reparado por ${ord.tecnico}. Trabajo: ${trabajoInput.trim()}. Costo Total: $${presupuestoActual.toLocaleString("es-AR")}. Pasó a Listos para Retirar.`;
+      const historialActualizado = [...(ord.historialEventos || []), { fecha: fechaHoraActual, detalle: nuevoventoDetalle }];
 
       try {
         const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
         await window.updateDoc(docRef, {
           estado: nuevoEstado,
           trabajoRealizado: trabajoInput.trim(),
+          presupuestoBase: ord.presupuestoBase > 0 ? ord.presupuestoBase : presupuestoActual,
+          presupuesto: presupuestoActual,
+          saldo: nuevoSaldo,
           fechaModificacion: fechaHoraActual,
           historialEventos: historialActualizado
         });
@@ -888,11 +895,9 @@
           mensajeWs += `🔍 *Trabajo Realizado:* ${trabajoInput.trim()}\n`;
         }
 
-        if (presAnterior > 0) {
-          mensajeWs += `\n💵 *Presupuesto Total:* $${presAnterior.toLocaleString("es-AR")}`;
-          if (seniaActual > 0) mensajeWs += ` | *Seña:* $${seniaActual.toLocaleString("es-AR")}`;
-          mensajeWs += `\n👉 *SALDO A ABONAR AL RETIRAR:* *$${nuevoSaldo.toLocaleString("es-AR")}*`;
-        }
+        mensajeWs += `\n💵 *Presupuesto Total:* $${presupuestoActual.toLocaleString("es-AR")}`;
+        if (seniaActual > 0) mensajeWs += ` | *Seña:* $${seniaActual.toLocaleString("es-AR")}`;
+        mensajeWs += `\n👉 *SALDO A ABONAR AL RETIRAR:* *$${nuevoSaldo.toLocaleString("es-AR")}*`;
 
         mensajeWs += `\n\n📍 Podés pasar a retirarlo por *Mitre 1231*. Horarios: Lun a Vie 08:00 a 12:30 y 16:30 a 20:30, Sáb 09:00 a 12:00.`;
 
@@ -1006,7 +1011,11 @@
       const fechaHoraActual = obtenerFechaHoraActual();
 
       if (acepto) {
-        const nuevoventoDetalle = `El cliente ACEPTÓ el nuevo presupuesto (Total: $${(ord.presupuesto || 0).toLocaleString("es-AR")}). Vuelve a reparación.`;
+        const presTotal = ord.presupuesto || 0;
+        const seniaActual = ord.senia || 0;
+        const saldoCalculado = presTotal - seniaActual;
+
+        const nuevoventoDetalle = `El cliente ACEPTÓ el nuevo presupuesto (Total: $${presTotal.toLocaleString("es-AR")}). Vuelve a reparación.`;
         const nuevoEvento = {
           fecha: fechaHoraActual,
           detalle: nuevoventoDetalle
@@ -1017,6 +1026,8 @@
           const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
           await window.updateDoc(docRef, {
             estado: "Presupuesto Aceptado / En Reparación",
+            presupuesto: presTotal,
+            saldo: saldoCalculado,
             fechaModificacion: fechaHoraActual,
             historialEventos: historialActualizado
           });
