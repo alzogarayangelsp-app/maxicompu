@@ -14,7 +14,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
-      getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc 
+      getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, increment 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -36,6 +36,7 @@
     window.getDocs = getDocs;
     window.deleteDoc = deleteDoc;
     window.updateDoc = updateDoc;
+    window.increment = increment;
     window.collection = collection;
   </script>
 </head>
@@ -51,6 +52,22 @@
           <button id="btn-modal-enviar" class="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-bold text-xs shadow transition">📲 Guardar y Enviar WhatsApp</button>
           <button id="btn-modal-solo" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold text-xs shadow transition">📁 Solo Guardar</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Modal para Cláusula de Abandono -->
+    <div id="modal-abandono" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg p-5 max-w-md w-full shadow-xl space-y-3">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h3 class="font-bold text-sm text-amber-800 flex items-center gap-1">⚠️ Cláusula de Retiro y Abandono</h3>
+          <button onclick="cerrarClausulaAbandono()" class="text-gray-400 hover:text-gray-600 font-bold text-sm">✕</button>
+        </div>
+        <div class="text-xs text-gray-700 space-y-2 leading-relaxed max-h-64 overflow-y-auto pr-1">
+          <p>El plazo máximo para retirar su equipo es de <strong>90 días corridos</strong> a partir de la fecha de notificación de finalización del servicio (sea por presupuesto aprobado, rechazado o imposibilidad de reparación).</p>
+          <p>Pasado este período de 90 días sin que el equipo sea retirado ni se registre comunicación por parte del cliente, el equipo se considerará legalmente abandonado.</p>
+          <p>A partir de ese momento, la empresa quedará facultada para disponer del bien para cubrir los costos de almacenamiento, mano de obra y repuestos invertidos, sin derecho a reclamo, indemnización ni devolución alguna por parte del propietario.</p>
+        </div>
+        <button onclick="cerrarClausulaAbandono()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg font-bold text-xs transition">Entendido</button>
       </div>
     </div>
 
@@ -83,6 +100,13 @@
             <input type="number" id="input-celular" class="w-full border rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: 3329554433">
           </div>
           <button onclick="consultarOrdenCliente()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition">Consultar Estado</button>
+        </div>
+
+        <!-- Botón Sutil Cláusula de Abandono -->
+        <div class="pt-2 text-center">
+          <button onclick="abrirClausulaAbandono()" class="text-[11px] text-gray-400 hover:text-gray-600 underline transition">
+            ⚠️ Cláusula de Retiro y Abandono de Equipos
+          </button>
         </div>
       </div>
 
@@ -282,6 +306,14 @@
     let listaOrdenesCache = [];
     let filtroActualAdmin = "TODOS";
 
+    function abrirClausulaAbandono() {
+      document.getElementById("modal-abandono").classList.remove("hidden");
+    }
+
+    function cerrarClausulaAbandono() {
+      document.getElementById("modal-abandono").classList.add("hidden");
+    }
+
     function mostrarModalWhatsApp(celular, mensaje, callbackFin) {
       if (!celular) {
         if (callbackFin) callbackFin();
@@ -386,6 +418,10 @@
         if (docSnap.exists()) {
           const orden = docSnap.data();
           if (orden.celular === celular) {
+            // Incrementar contador de visitas del cliente en Firestore
+            await window.updateDoc(docRef, {
+              visitasCliente: window.increment(1)
+            });
             mostrarDetalleCliente(orden);
           } else {
             alert("El número de celular no coincide con el registrado en esta orden.");
@@ -540,6 +576,7 @@
         fechaIngreso: fechaIngreso,
         fechaModificacion: fechaIngreso,
         historialEventos: historialInicial,
+        visitasCliente: 0,
         mesCaja: new Date().toISOString().substring(0, 7)
       };
 
@@ -710,6 +747,7 @@
         const presBase = ord.presupuestoBase || ord.presupuesto || 0;
         const presAdic = ord.presupuestoAdicional || 0;
         const presTotal = ord.presupuesto || (presBase + presAdic);
+        const visitas = ord.visitasCliente || 0;
 
         let htmlHistorialTecnico = "";
         const eventos = ord.historialEventos || [
@@ -724,7 +762,7 @@
           card.innerHTML = `
             <div class="flex justify-between items-start border-b pb-2">
               <div>
-                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre}</p>
+                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre} <span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded border ml-1 font-normal" title="Veces que el cliente vio el estado">👁️ ${visitas}</span></p>
                 <p class="text-gray-600">Equipo: <strong>${ord.tipoEquipo} (${ord.modelo})</strong> | Falla: ${ord.falla}</p>
                 <p class="text-gray-500">Técnico Asignado: <strong class="text-blue-700">${ord.tecnico}</strong> | Cel: ${ord.celular || 'Sin tel'}</p>
               </div>
@@ -746,7 +784,7 @@
           card.innerHTML = `
             <div class="flex justify-between items-start border-b pb-2">
               <div>
-                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre}</p>
+                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre} <span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded border ml-1 font-normal" title="Veces que el cliente vio el estado">👁️ ${visitas}</span></p>
                 <p class="text-gray-600">Equipo: <strong>${ord.tipoEquipo} (${ord.modelo})</strong> | Falla: ${ord.falla}</p>
                 <p class="text-gray-500">Técnico Asignado: <strong class="text-blue-700">${ord.tecnico}</strong> | Cel: ${ord.celular || 'Sin tel'}</p>
               </div>
@@ -783,7 +821,7 @@
           card.innerHTML = `
             <div class="flex justify-between items-start border-b pb-2">
               <div>
-                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre}</p>
+                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre} <span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded border ml-1 font-normal" title="Veces que el cliente vio el estado">👁️ ${visitas}</span></p>
                 <p class="text-gray-600">Equipo: <strong>${ord.tipoEquipo} (${ord.modelo})</strong> | Falla: ${ord.falla}</p>
                 <p class="text-gray-500">Técnico Asignado: <strong class="text-blue-700">${ord.tecnico}</strong> | Cel: ${ord.celular || 'Sin tel'}</p>
               </div>
@@ -804,7 +842,7 @@
           card.innerHTML = `
             <div class="flex justify-between items-start border-b pb-2">
               <div>
-                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre}</p>
+                <p class="font-bold text-blue-900 text-sm">Orden N° ${ord.nroOrden} - ${ord.nombre} <span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded border ml-1 font-normal" title="Veces que el cliente vio el estado">👁️ ${visitas}</span></p>
                 <p class="text-gray-600">Equipo: <strong>${ord.tipoEquipo} (${ord.modelo})</strong> | Falla: ${ord.falla}</p>
                 <p class="text-gray-500">Técnico: <strong class="text-blue-700">${ord.tecnico}</strong> | Cel: ${ord.celular || 'Sin tel'}</p>
               </div>
@@ -889,7 +927,6 @@
 
       let presupuestoActual = ord.presupuestoBase || ord.presupuesto || 0;
 
-      // SIEMPRE consultar costo final (o permitir confirmar/actualizar) para evitar que quede en $0 si no se cargó antes
       const costoInput = prompt(`Ingresá el COSTO TOTAL de la reparación ($):`, presupuestoActual > 0 ? presupuestoActual : "0");
       if (costoInput === null || isNaN(parseFloat(costoInput))) return;
       presupuestoActual = parseFloat(costoInput);
@@ -1082,7 +1119,7 @@
 
         const nuevoEvento = {
           fecha: fechaHoraActual,
-          detalle: `El cliente RECHAZÓ el nuevo presupuesto. Pasó a Sin Reparación / Presupuesto Rechazado (Costo revisión: $${costoRevision.toLocaleString("es-AR")}).`
+          detalle: `El cliente RECHAZÓ el nuevo presupuesto. Pasó a Sin Reparación / Presupuesto Rechazado (Costo revisión: $${costoRevision.toLocaleString("es-AR" )}).`
         };
         const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
