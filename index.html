@@ -63,9 +63,9 @@
           <button onclick="cerrarClausulaAbandono()" class="text-gray-400 hover:text-gray-600 font-bold text-sm">✕</button>
         </div>
         <div class="text-xs text-gray-700 space-y-2 leading-relaxed max-h-64 overflow-y-auto pr-1">
-          <p>El plazo máximo para retirar su equipo es de <strong>90 días corridos</strong> a partir de la fecha de notificación de finalización del servicio (sea por presupuesto aprobado, rechazado o imposibilidad de reparación).</p>
-          <p>Pasado este período de 90 días sin que el equipo sea retirado ni se registre comunicación por parte del cliente, el equipo se considerará legalmente abandonado.</p>
-          <p>A partir de ese momento, la empresa quedará facultada para disponer del bien para cubrir los costos de almacenamiento, mano de obra y repuestos invertidos, sin derecho a reclamo, indemnización ni devolución alguna por parte del propietario.</p>
+          <p>El plazo máximo para retirar su equipo es de <strong>90 días corridos</strong> a partir de la fecha de notificación de finalización del servicio (sea por presupuesto aprobado, rechazado o imposibilidad de reparación)[cite: 7].</p>
+          <p>Pasado este período de 90 días sin que el equipo sea retirado ni se registre comunicación por parte del cliente, el equipo se considerará legalmente abandonado[cite: 7].</p>
+          <p>A partir de ese momento, la empresa quedará facultada para disponer del bien para cubrir los costos de almacenamiento, mano de obra y repuestos invertidos, sin derecho a reclamo, indemnización ni devolución alguna por parte del propietario[cite: 7].</p>
         </div>
         <button onclick="cerrarClausulaAbandono()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg font-bold text-xs transition">Entendido</button>
       </div>
@@ -751,7 +751,7 @@
 
         let htmlHistorialTecnico = "";
         const eventos = ord.historialEventos || [
-          { fecha: ord.fechaIngreso || "-", detalle: "Ingreso a taller" }
+          { fecha: ord.fechaIngreso || "-", detalle: "Ingreso de equipo a taller" }
         ];
 
         eventos.forEach(ev => {
@@ -881,7 +881,10 @@
                   <button onclick="solicitarNuevoPresupuesto('${ord.nroOrden}')" class="bg-purple-600 text-white px-2 py-1 rounded font-semibold hover:bg-purple-700">📋 Nuevo Presupuesto</button>
                   <button onclick="marcarSinReparacion('${ord.nroOrden}')" class="bg-red-600 text-white px-2 py-1 rounded font-semibold hover:bg-red-700">❌ Sin Reparación</button>
                 </div>
-                <button onclick="reasignarTecnico('${ord.nroOrden}', '${otroTecnico}')" class="w-full bg-gray-600 text-white py-1 rounded font-bold hover:bg-gray-700 text-[11px] shadow-sm">🔀 Pasar Orden a ${otroTecnico}</button>
+                <div class="flex gap-1 pt-1">
+                  <button onclick="agregarNotaHistorial('${ord.nroOrden}')" class="w-1/2 bg-gray-500 text-white py-1.5 rounded font-bold hover:bg-gray-600 text-[11px] shadow-sm">📝 Agregar Nota al Historial</button>
+                  <button onclick="reasignarTecnico('${ord.nroOrden}', '${otroTecnico}')" class="w-1/2 bg-gray-600 text-white py-1.5 rounded font-bold hover:bg-gray-700 text-[11px] shadow-sm">🔀 Pasar a ${otroTecnico}</button>
+                </div>
               </div>
             `}
           `;
@@ -889,6 +892,33 @@
 
         listaDiv.appendChild(card);
       });
+    }
+
+    async function agregarNotaHistorial(nroOrden) {
+      const ord = listaOrdenesCache.find(o => o.nroOrden === nroOrden);
+      if (!ord) return;
+
+      const notaInput = prompt(`Escribí el movimiento o nota interna para el historial de la Orden N° ${nroOrden}:\n(Ej: Comisionista retrasado, llega hoy a la tarde)`, "");
+      if (notaInput === null || !notaInput.trim()) return;
+
+      const fechaHoraActual = obtenerFechaHoraActual();
+      const nuevoEvento = {
+        fecha: fechaHoraActual,
+        detalle: `Nota de Taller (${ord.tecnico}): ${notaInput.trim()}`
+      };
+      const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
+
+      try {
+        const docRef = window.doc(window.db, "ordenes_maxicompu", nroOrden);
+        await window.updateDoc(docRef, {
+          fechaModificacion: fechaHoraActual,
+          historialEventos: historialActualizado
+        });
+        cargarPanelTaller();
+      } catch (e) {
+        console.error(e);
+        alert("Error al guardar la nota en el historial.");
+      }
     }
 
     async function reasignarTecnico(nroOrden, nuevoTecnico) {
@@ -1119,7 +1149,7 @@
 
         const nuevoEvento = {
           fecha: fechaHoraActual,
-          detalle: `El cliente RECHAZÓ el nuevo presupuesto. Pasó a Sin Reparación / Presupuesto Rechazado (Costo revisión: $${costoRevision.toLocaleString("es-AR" )}).`
+          detalle: `El cliente RECHAZÓ el nuevo presupuesto. Pasó a Sin Reparación / Presupuesto Rechazado (Costo revisión: $${costoRevision.toLocaleString("es-AR")}).`
         };
         const historialActualizado = [...(ord.historialEventos || []), nuevoEvento];
 
